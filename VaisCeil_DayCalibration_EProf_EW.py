@@ -503,13 +503,13 @@ ratio_filt = 0.05 #between 0.05-0.10 works best - increasing to 0.1 allows more 
 no_of_profs = 5 #No of consecutive profiles required. Must be odd integer. Recommend 3/5/7/9
 
 # Get list of hourly (ceilometer?) files using ls command
-path = '/net/glusterfs/scenario/users/qt013194/Data/L1_FILES/L1_FILES'
-WMO,date = user_input_variables()
-filenames = get_hourly_files(path,WMO,date)
+#path = '/net/glusterfs/scenario/users/qt013194/Data/L1_FILES/L1_FILES'
+path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/L1/'
 
-#check for 24 files (ie one day's worth) - print warning and continue if less 
-if len(filenames) < 23:
-    print 'WARNING: less files than expected - not 24 hours of data'
+WMO,date = user_input_variables()
+filenames = ['CL31-D_BSC_NK_2016019_15sec.nc']
+# filenames = get_hourly_files(path,WMO,date)
+
 
 
 #########################################################################################
