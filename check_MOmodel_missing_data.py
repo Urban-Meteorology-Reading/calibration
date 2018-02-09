@@ -71,6 +71,6 @@ for model, model_fname_part in models.iteritems():
 # save missing data files
 np.savetxt(savedir + model + '_missing_KSSW_dates.csv', missing_dates, delimiter=',')
 np.savetxt(savedir + model + '_missing_KSSW_filenames.csv', missing_files, delimiter=',')
-np.savetxt(savedir + model + '_missing_KSSW_dates_oldstyle.csv', missing_files, delimiter='')
+np.savetxt(savedir + model + '_missing_KSSW_dates_oldstyle', missing_files, delimiter='')
 
 print 'END PROGRAM'
