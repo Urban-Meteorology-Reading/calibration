@@ -120,6 +120,12 @@ All_modelWV = []    #transmission correction by profile from model
 profiles_in_row = []
 file_locs = []
 
+# -----------------
+# Reading in data
+# -----------------
+
+# remember, need to use ceil_load.py on LUMO data first to cube it, then use this code to get calibrations
+
 for year in Year:
     #modwv_path = '/data/its-tier2/micromet/data/'+year+'/London/L2/MetOffice/DAY/'
     modwv_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/cubes'
@@ -132,90 +138,74 @@ for year in Year:
         no_of_files = len(filelist)
         file_locs.append(no_of_files)
 
+        # for each file in the list of filenames, for this month
         for ll in filelist:
             str_date = year+month+ll[:-3]
             dates = "/".join([year, month, ll[:-3]])
-            DOY, DOY2 = EH.get_DOYS(str(dates))
+            DOY, DOY2 = EH.get_DOYS(str(dates)) # as wv is part way into a day, it needs the day before as well
             data_dates.append(dates)
             #For each daily file:
             print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' 
             filepath = "/".join([path, Location, Instrument, year, month, ll])
             #filepath = path+'/'+Location+'/'+Instrument+'/'+year+'/'+month+'/'+ll
             print '>>>>',filepath
-            daycube = LD.opencube(filepath)
-            beta, time_data, range_data = LD.data(daycube)
-            if Instrument == 'Jen':
-                beta_data = np.transpose(beta.data*10.)###########
-                
-            else:
-                beta_data = np.transpose(beta.data)
-                #beta_data = EH.window_correction(beta_data,daycube)     ###window_tau correction
-            #quicklook = EH.veiw_quicklook(daycube,beta_data, time_data, range_data)    
-            ##Apply scattering correction
+            daycube = LD.opencube(filepath) # simply opens the cube file
+            beta, time_data, range_data = LD.data(daycube) # gets data out of the daycube file
+
+            # change array format for beta
+            beta_data = np.transpose(beta.data)
+            #beta_data = EH.window_correction(beta_data,daycube)     ###window_tau correction
+            #quicklook = EH.veiw_quicklook(daycube,beta_data, time_data, range_data)
+
+            # ------------------------------
+            # Apply scattering correction
+            # ------------------------------
+
+            # find the cloud based on the max backscatter return, and set the backscatter at all other heights to nan
             cloud_beta = EH.find_cloud(beta_data)
-            if Instrument == 'Jen':
-                Scat_correct_b = EH.scatter_correct_Jen(cloud_beta, range_data) 
-            else:
-                Scat_correct_b = EH.scatter_correct_Vais(cloud_beta, range_data)
-                
+
+            # get the multiple scattering correction for the backscatter that was not the cloud
+            Scat_correct_b = EH.scatter_correct_Vais(cloud_beta, range_data)
+
+            # apply the multiple scattering to correct the non-cloud backscatter,
+            #    and merge the array with the cloud backscatter array
             beta_arr = EH.corr_beta (Scat_correct_b, beta_data)
             
             #filter out profiles with reduced window transmission
-            if Instrument == 'Vais':
-                #beta_arr = CAL.filter_window(beta_arr, daycube, 90.)
-                #beta_arr = CAL.filter_power(beta_arr, daycube, 90.)
-                
-                #Revised WV from ukv model
-                #ukv_file = str_date+'_chilbolton_met-office-ukv-0-5.nc'
-                modwv_file =  'MOUKV_FC'+str_date+'06Z_WXT_KSSW.nc'
-                modwv_file2 =  'MOUKV_FC'+str(int(str_date)-1)+'06Z_WXT_KSSW.nc'
-                #Chil_ukv_path = '/glusterfs/scenario/users/qt013194/Data/ukv/'
+            #beta_arr = CAL.filter_window(beta_arr, daycube, 90.)
+            #beta_arr = CAL.filter_power(beta_arr, daycube, 90.)
 
-                #def WV_ukv
-                #ukv_path = join(Chil_ukv_path,year,month, ukv_file)
-                ukv_path2 = "/".join([modwv_path,modwv_file])
-                ukv_path1 = "/".join([modwv_path,modwv_file2])
+            # -----------------------------
+            # Water vapour correction
+            # -----------------------------
 
-                if(os.path.exists(ukv_path1))  & (os.path.exists(ukv_path2)):
-                    ukv_T2_profs = CAL.WV_Transmission_Profs_LUMO(ukv_path1, ukv_path2, range_data, time_data, beta_data)
-                    beta_arr_wv = beta_arr*(1/np.transpose(ukv_T2_profs))
-                    print 'WV CORRECTION APPLIED'       
-                else:
-                    beta_arr_wv = beta_arr*np.nan ##set to nan if no water correction available
-                    print 'NO WV CORRECTION' 
+            # Read in water vapour from MO NWP model data (2 files needed as files do not start at 0Z)
+            # filenames
+            #Revised WV from ukv model
+            #ukv_file = str_date+'_chilbolton_met-office-ukv-0-5.nc'
+            modwv_file =  'MOUKV_FC'+str_date+'06Z_WXT_KSSW.nc'
+            modwv_file2 =  'MOUKV_FC'+str(int(str_date)-1)+'06Z_WXT_KSSW.nc'
+            #Chil_ukv_path = '/glusterfs/scenario/users/qt013194/Data/ukv/'
+
+            # full file paths using filenames
+            #def WV_ukv
+            #ukv_path = join(Chil_ukv_path,year,month, ukv_file)
+            ukv_path2 = "/".join([modwv_path,modwv_file])
+            ukv_path1 = "/".join([modwv_path,modwv_file2])
+
+            # if both day files exist, do the water vapour correction
+            if(os.path.exists(ukv_path1))  & (os.path.exists(ukv_path2)):
+                ukv_T2_profs = CAL.WV_Transmission_Profs_LUMO(ukv_path1, ukv_path2, range_data, time_data, beta_data)
+                beta_arr_wv = beta_arr*(1/np.transpose(ukv_T2_profs))
+                print 'WV CORRECTION APPLIED'
+            else:
+                beta_arr_wv = beta_arr*np.nan ##set to nan if no water correction available
+                print 'NO WV CORRECTION'
+
             #calculate S, including transmission correction
             #S, B_T2 = CAL.lidar_ratio_withT2(beta_arr,range_data, Instrument)
             #
-            
-            if Instrument == 'Jen':
-                beta_arr_saturate = np.copy(beta_arr)
 
-                count_check = 0
-                for i in xrange(len(np.transpose(beta_arr_saturate))):
-                    index, value = max(enumerate(beta_arr_saturate[:,i]), key=operator.itemgetter(1))
-                    prof_from_max = beta_arr_saturate[index:index+33,i] #from max to 500m above
-                    neg_check = np.zeros(len(prof_from_max))
-                    
-                    for j in range(len(prof_from_max)):
-                        if prof_from_max[j] < 0:
-                            neg_check[j] = neg_check[j-1] + 1.
-                        else:
-                            neg_check[j] = 0
-                    
-                    if max(neg_check)>9:    #9=150m, 5 = 100m 
-                        count_check = count_check + 1
-                        #print max(neg_check),count_check
-                        
-                        beta_arr_saturate[:,i] = np.nan
-                    else:
-                        pass
-
-                print 'sat filtered = ', count_check
-            
-                S,S2 = CAL.lidar_ratio(beta_arr_saturate,range_data, Instrument)
-                
-            else:
-                S,S2 = CAL.lidar_ratio(beta_arr,range_data, Instrument)
                 
             ##Apply beta filters            
             Step1_S, profile_B_ratio = CAL.step1_filter(beta_data, range_data,maxB_filt,ratio_filt,S, Instrument)  #aerosol ratio = 5%
