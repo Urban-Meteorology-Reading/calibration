@@ -1,9 +1,10 @@
 """
-Calibration for the LUMO ceilometers (designed mainly for CL31 and Lufft ceilometers).
+Calibration for the LUMO ceilometers.
 
-Code create block sets of calibration values, which takes into account water vapour absorption. Saves yearly
-netCDF files of the outputs in L0 folder. Based on the cumulostratus calibration method designed by
-Hopkin et al., in prep.
+Code create block sets of calibration values based on a date range, which takes into account water vapour absorption.
+Saves yearly netCDF files of the outputs in L0 folder. Based on the cumulostratus calibration method developed by
+Hopkin et al., in prep. Code designed mainly for CL31 and Lufft ceilometers but adapted here for use solely for LUMO
+ceilometers. Functions kept in the LUMO_ceilometer_Utils.py script.
 
 Data needed is:
 - L1 BSC files (attenuated backscatter from ceilometers)
@@ -17,10 +18,10 @@ Based on (EW_)CloudCal_filt_VaisTemp_LUMO by Emma Hopking, edited by Elliott War
 import sys
 # append dir containing EH's utility library
 sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
-# import LoadData_Utils as LD
 import EH_Utils as EH
 import Cal_Utils as CAL
 import Stats_Utils as ST
+import LUMO_calibration_Utils as lcu
 
 import os # operating system library to issue Unix commands
 from netCDF4 import Dataset # to read standard netCDF files
@@ -36,7 +37,8 @@ import ellUtils as eu
 # directories
 # final datadir structure needs to be...
 # /data/its-tier2/micromet/data/2017/London/L1/IMU/DAY/200/
-datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/2015/01/'
+# NOTE: Make sure bsc files are from L0!!
+datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/2015/London/L0/01/'
 datadir_ccw30 = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/2015/01/'
 datadir_mo ='C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
 
@@ -52,15 +54,61 @@ site_ins = {'site': 'NK', 'ceil_id': 'CL31-D'}
 # Read in data
 # ----------------------------
 
-
 for day in date_range:
 
-    yesterday = day - dt.timedelta(days=1)
+    # read in backscatter data (need beta, time and range)
+    # Note: L0 heights are corrected for height above ground
+    #       L1 heights are NOT corrected and are therefore just the range...
+    bsc_filepath = datadir_bsc + 'CL31-A_BSC_KSS45W_'+day.strftime('%Y%j')+'_15sec.nc'
 
-    # get MO filepaths for the water vapour
-    yesterday_filename = 'MOUKV_FC'+yesterday.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
-    day_filename = 'MOUKV_FC'+day.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
+    data_new = eu.netCDF_read(bsc_filepath)
 
-    yesterday_filepath = datadir_mo + yesterday_filename
-    day_filepath = datadir_mo + day_filename
 
+
+
+
+
+
+
+    # Get full file paths for the day and yesterday's (yest) MO data
+    yest_filepath, day_filepath = lcu.mo_create_filenames(day, datadir_mo)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+print 'END PROGRAM'
