@@ -17,7 +17,6 @@ import os # operating system library to issue Unix commands
 from os.path import join # use join to link file names to the directory (avoids error with '/' in the path)
 import iris  # data management and plotting library from met office
 import ncUtils # library for reading netCDF files
-import iris.quickplot as qplt # more plotting routines
 import matplotlib.pyplot as plt # plotting library (not Met Office)
 from netCDF4 import Dataset # to read standard netCDF files
 import numpy as np # numerical python library for arrays and mathematical functions
@@ -202,12 +201,12 @@ for year in Year:
                 beta_arr_wv = beta_arr*np.nan ##set to nan if no water correction available
                 print 'NO WV CORRECTION'
 
-            #calculate S, including transmission correction
+            #calculate S, including transmission correction (on non water vapour corrected profiles)
             #S, B_T2 = CAL.lidar_ratio_withT2(beta_arr,range_data, Instrument)
-            #
+            S, S2 = CAL.lidar_ratio(beta_arr, range_data, Instrument)
 
-                
-            ##Apply beta filters            
+            # Remove profiles unsuitable for calibration
+            ##Apply beta filters
             Step1_S, profile_B_ratio = CAL.step1_filter(beta_data, range_data,maxB_filt,ratio_filt,S, Instrument)  #aerosol ratio = 5%
             Step1_S2, profile_B_ratio2 = CAL.step1_filter(beta_data, range_data,maxB_filt,ratio_filt,S2, Instrument)  #aerosol ratio = 5%
             ##Apply S Filters
@@ -216,12 +215,15 @@ for year in Year:
             Step2_S[Step2_S <0] = np.nan #(remove neg values caused by neg noise)
             Step2_S2[Step2_S2 <0] = np.nan
 
-            if Instrument == 'Vais':
-                S_wv,S_wv2= CAL.lidar_ratio(beta_arr_wv,range_data, Instrument)
-                Step1_S_wv, profile_B_ratio_wv = CAL.step1_filter(beta_data, range_data,maxB_filt,ratio_filt,S_wv, Instrument)  #aerosol ratio = 5%
-                Step2_S_wv = CAL.step2_Sfilt (Step1_S_wv, 10,cont_profs)  
-                Step2_S_wv[Step2_S_wv <0] = np.nan #(remove neg values caused by neg noise)            
-                
+            # calculate lidar ratio for the water vapour corrected profiles
+            S_wv,S_wv2= CAL.lidar_ratio(beta_arr_wv,range_data, Instrument)
+            # filter out bad profiles, unsuitable for calibrations
+            Step1_S_wv, profile_B_ratio_wv = CAL.step1_filter(beta_data, range_data,maxB_filt,ratio_filt,S_wv, Instrument)  #aerosol ratio = 5%
+            Step2_S_wv = CAL.step2_Sfilt (Step1_S_wv, 10,cont_profs)
+            Step2_S_wv[Step2_S_wv <0] = np.nan #(remove neg values caused by neg noise)
+
+            # ---------------------------------------
+            # not too sure what this bit is for - maybe for plotting stuff below?
             ###Count up continuous cal profiles
             it = 0
             for ss in Step2_S:
@@ -233,9 +235,8 @@ for year in Year:
                 if ss == Step2_S[-1]:
                     profiles_in_row.append(it)
                     it = 0
-            
             print 'DATE: ',year, month,ll
-            
+            # -----------------------------------
 
             ##record maxB, CBH                        
             arr = np.copy(beta_data)
@@ -250,51 +251,20 @@ for year in Year:
             
             #CBH_data = daycube.coord('cbh_lower')
             #CBH = np.concatenate((CBH,CBH_data.points))
-            
-            ##WV at Chilbolton
-            if Location == 'MiddleWallop':
-                WV_correction = EH.radiometer_file(mr_path,year,str_date,Step2_S)
-                day_WV = np.mean(WV_correction)
-                WV_trans = np.concatenate((WV_trans,WV_correction))
-                daily_WV.append(day_WV)
-                lens = len(WV_trans)
-                lengths.append(lens)
-                
-                ####model - create function...
-                #ukv_file = str_date+'_chilbolton_met-office-ukv-0-5.nc'
-                #daily_modelWV = MOD.WV_model(month, year, ukv_file) #column WV
-                #model_corr = EH.WV_Transmission_Linear(daily_modelWV*0.1)#correction
-                #day_WV_model = np.mean(model_corr)                          #len 24 - one per hour
-                #model_x = np.linspace(0,len(Step2_S),len(daily_modelWV))    #model space
-                #new_model_x = np.linspace(0,len(Step2_S),len(Step2_S))      #instrument profile space
-                #f=interp1d(model_x,daily_modelWV)
-                #modelWV_interpld = f(new_model_x)
-                #modelWV_interpld = np.ma.masked_less(modelWV_interpld,0)
-                
-                #All_modelWV = np.concatenate((All_modelWV, modelWV_interpld))
-                
-                #daymean_modelWV.append(day_WV_model)
 
-                    
+            # -----------------
+            # Statistics
+            # -----------------
+
             ##Calculate mode and mean
-            if Instrument == 'Jen':
-                """
-                Impose cloud height min to Lufft
-                """
-                Step2_S = CAL.CBH_check(Step2_S, Instrument,CBH_data.points, CBH_max, CBH_min)
-                Cal_hist, no_of_profs = ST.Plot_ashist(Step2_S.compressed()) #Histogram of filtered S
-                no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev,dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = ST.S_mode_mean(Step2_S.compressed(), Cal_hist)
-            else:
-                Cal_hist, no_of_profs = ST.Plot_ashist(Step2_S) #Histogram of filtered S
-                no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev,dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = ST.S_mode_mean(Step2_S, Cal_hist)
-                Cal_hist_wv, no_of_profs_wv = ST.Plot_ashist(Step2_S_wv) #Histogram of filtered S
-                no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv,dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = ST.S_mode_mean(Step2_S_wv, Cal_hist_wv)
+            Cal_hist, no_of_profs = ST.Plot_ashist(Step2_S) #Histogram of filtered S
+            no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev,dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = ST.S_mode_mean(Step2_S, Cal_hist)
+            Cal_hist_wv, no_of_profs_wv = ST.Plot_ashist(Step2_S_wv) #Histogram of filtered S
+            no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv,dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = ST.S_mode_mean(Step2_S_wv, Cal_hist_wv)
 
 
-                Cal_hist2, no_of_profs2 = ST.Plot_ashist(Step2_S2) #Histogram of filtered S
-                no_in_peak2, day_mode2, day_mean2, day_median2, day_sem2, day_stdev2,dayC_mode2, dayC_median2, dayC_stdev2, dayCL_median2, dayCL_stdev2 = ST.S_mode_mean(Step2_S2, Cal_hist2)
-
-
+            Cal_hist2, no_of_profs2 = ST.Plot_ashist(Step2_S2) #Histogram of filtered S
+            no_in_peak2, day_mode2, day_mean2, day_median2, day_sem2, day_stdev2,dayC_mode2, dayC_median2, dayC_stdev2, dayCL_median2, dayCL_stdev2 = ST.S_mode_mean(Step2_S2, Cal_hist2)
 
 
             #plt.close('all')
@@ -387,9 +357,13 @@ for p in loc_p_alert:
     print data_dates[p]
 print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
+# --------------------------
+# Plotting
+# --------------------------
+
 
 #For all files (print to screen):
-##Timeseries of daily moes
+##Timeseries of daily modes
 plt.figure (figsize =(15,6))
 plt.title('Daily Lidar Ratio Mode - '+ Location, fontsize = 20)
 plt.ylabel ('Apparent S [sr]',fontsize = 16)
@@ -447,6 +421,7 @@ plt.annotate(N, xy = (0,50))
 plt.annotate(sd_1, xy = (0,45))
 #plt.annotate(sd_2, xy = (0,66))
 #plt.annotate(sd_3, xy = (0,64))
+
 #######################################################################################
 ##Timeseries of daily means
 plt.figure (figsize =(15,6))
@@ -504,6 +479,7 @@ plt.annotate(N, xy = (0,48))
 plt.annotate(sd_1, xy = (0,46))
 plt.annotate(sd_2, xy = (0,44))
 plt.annotate(sd_3, xy = (0,55))
+
 #######################################################################################
 ##Timeseries of daily medians
 plt.figure (figsize =(15,6))
@@ -649,53 +625,6 @@ grid()
 tight_layout()
 plt.show()
 
-"""
-
-####Plot with shaded standard deviation
-fig=plt.figure(figsize=(10,4))
-plt.title('Daily Calibration Coefficient - '+ Location+' '+ Instrument, fontsize = 20)
-plt.ylabel ('C',fontsize = 16)
-#plt.ylabel ('CL [x '+ r'$10^{11}$'+']',fontsize = 16)
-plt.yticks(fontsize = 16)
-x = np.arange(0,(len(medians)))
-med2 = np.array(means)
-#C_L = med2/18.8
-C_L = np.array(C_medians2)
-mm = np.isfinite(C_L)
-stdevs = np.asarray(C_stdevs2)
-yminus = C_L -(np.asarray(stdevs))#/18.8
-yplus = C_L +(np.asarray(stdevs))#/18.8
-plt.plot(x[mm], C_L[mm],'-x',markeredgewidth = 2, markersize = 12, c = 'r', label = 'Calibration Coefficient')
-plt.fill_between(x[mm], yminus[mm], yplus[mm], color = '0.5', label = 'Standard Deviation')
-#ticks = ['Jan16', 'Feb16', 'Mar16', 'Apr16', 'May16', 'Jun16', 'Jul16','Aug16', 'Sept16', 'Oct16', 'Nov16']
-#ticks = ['Sept14', 'Oct14', 'Nov14', 'Dec14', 'Jan15', 'Feb15', 'Mar15', 'Apr15', 'May15', 'Jun15', 'Jul15', 'Aug15', 'Sept15', 'Oct15', 'Nov15', 'Dec15']
-fff = np.asarray(file_locs)
-locs = fff[fff != 0]
-locs =  np.cumsum(locs)
-locs = np.insert(locs, 0, 0)
-plt.xticks(locs, ticks, rotation = 90)
-grid()
-#axis(ymax = 3, ymin = 0)
-t = daycube.aux_coords[3].points
-plt.title('Daily Calibration Coefficient \n - '+ str(t[0]), fontsize = 18)
-plt.legend(loc = 2)
-tight_layout()
-"""
-
-
-"""
-ticks = ['Jan13', 'Feb13', 'Mar13', 'Apr13', 'May13', 'Jun13', 'Jul13', 'Aug13','Sept13', 'Oct13', 'Nov13', 'Dec13', 'Jan14', 'Feb14', 'Mar14', 'Apr14', 'May14', 'Jun14', 'Jul14', 'Aug14', 'Sept14','Oct14', 'Nov14', 'Dec14']
-ticks = ['Sept14', 'Oct14', 'Nov14', 'Dec14', 'Jan15', 'Feb15', 'Mar15', 'Apr15', 'May15', 'Jun15', 'Jul15', 'Aug15', 'Sept15']
-locs = [0,31,59,90,120,151,181,212,242,273,304,334,365,396,424, 455,485,516,547,577,608,638,669,699]
-
-ticks = ['Sept14', 'Oct14', 'Nov14', 'Dec14', 'Jan15', 'Feb15', 'Mar15', 'Apr15', 'May15', 'Jun15', 'Jul15', 'Aug15', 'Sept15', 'Oct15', 'Nov15', 'Dec15', 'Jan16', 'Feb16', 'Mar16', 'Apr16', 'May16', 'Jun16', 'Jul16','Aug16', 'Sept16', 'Oct16', 'Nov16', 'Dec16']
-
-locs = [0, 30, 61, 91, 122, 153, 181, 212, 242, 273, 303, 334, 365, 395, 426,456]
-
-locs = [0,31,62,92,123,154,182,213,243,274,304,334,365, 396, 424, 455, ]
-plt.xticks(locs, ticks, rotation = 90)
-plt.grid()
-"""
 ######################################################################
 #CBH Dependecy
 # Effect (if any?) on max Beta and B (integrated Beta)
@@ -745,30 +674,7 @@ cbar.set_label('frequency of profiles', rotation = 90)
 plt.grid()
 plt.show()
 
-"""    
-#if Instrument == 'Jen':    
-C_lower = np.ma.masked_equal(CBH, -999)    
-y = np.ma.masked_equal(CBH, -999)
-#x = (np.ma.masked_array(value_of_maxB,np.isnan(All_S)))/(C_lower**2)
-###x = np.ma.masked_where(np.ma.getmask(All_S),value_of_maxB )
 
-x = np.ma.masked_array(value_of_maxB,np.isnan(All_S))
-yn = np.ma.masked_array(y, x.mask)
-xn = np.ma.masked_array(x, yn.mask)
-nx = np.ma.compressed(xn)
-ny = np.ma.compressed(yn)
-
-
-plt.figure()
-plt.hist2d(nx,ny,bins = 200, norm=matplotlib.colors.LogNorm())
-#plt.axis(xmax = 0.0012, xmin = -0.0002)
-plt.axis(ymax = 4.5, ymin = 0)
-plt.xlabel('Max '+r'$\beta$'+' in Cloud ['+r'$m^{-1}$' + r'$sr^{-1}$'+']')
-plt.ylabel('CBH_lower [km]')
-plt.title('Max '+r'$\beta$'+' of filtered S - '+Location+' CHM15k Nimbus')
-plt.colorbar()
-plt.show()
-"""
 ######################################################################
 ###Test effect of CBH/height of maxB/maxB/Power on C_L
 ###Uncomment to choosw
@@ -892,7 +798,7 @@ xx = np.asarray(value_of_maxB/(height**2))
 xx = np.ma.masked_array(xx,np.isnan(All_S))
 yy = np.ma.masked_greater(height, 4.)
 """
-#then use as above 
+#then use as above
  
 ###################################################################### 
 ###
