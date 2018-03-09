@@ -29,6 +29,7 @@ import numpy as np # numerical python library for arrays and mathematical functi
 import datetime as dt
 import copy
 import ellUtils as eu
+import ceilUtils as ceil
 
 # ----------------------------
 # Setup
@@ -56,23 +57,37 @@ site_ins = {'site': 'NK', 'ceil_id': 'CL31-D'}
 
 for day in date_range:
 
-    # read in backscatter data (need beta, time and range)
+    # Read in L0 backscatter data (need beta, time and range) ---------------
+
     # Note: L0 heights are corrected for height above ground
     #       L1 heights are NOT corrected and are therefore just the range...
     bsc_filepath = datadir_bsc + 'CL31-A_BSC_KSS45W_'+day.strftime('%Y%j')+'_15sec.nc'
 
-    data_new = eu.netCDF_read(bsc_filepath)
+    # read in L0 backscatter data
+    bsc_data, _ = ceil.netCDF_read_BSC(bsc_filepath)
 
+    # transpose the backscatter for EH functions
+    bsc_data['backscatter'] = np.transpose(bsc_data['backscatter'])
 
+    # create range in [km]
+    bsc_data['range_km'] = bsc_data['range'] / 1000.0
 
-
-
-
-
+    # Read in MO data --------------
 
     # Get full file paths for the day and yesterday's (yest) MO data
     yest_filepath, day_filepath = lcu.mo_create_filenames(day, datadir_mo)
 
+
+
+    # ------------------------------
+    # Apply scattering correction
+    # ------------------------------
+
+    # find the cloud based on the max backscatter return, and set the backscatter at all other heights to nan
+    cloud_beta = EH.find_cloud(bsc_data['backscatter'])
+
+    # apply the multiple scattering correction for the backscatter that was not the cloud
+    Scat_correct_b = lcu.scatter_correct_Vais(cloud_beta, bsc_data['range_km'])
 
 
 
