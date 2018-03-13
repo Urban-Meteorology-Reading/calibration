@@ -77,8 +77,6 @@ for day in date_range:
     # Get full file paths for the day and yesterday's (yest) MO data
     yest_filepath, day_filepath = lcu.mo_create_filenames(day, datadir_mo)
 
-
-
     # ------------------------------
     # Apply scattering correction
     # ------------------------------
