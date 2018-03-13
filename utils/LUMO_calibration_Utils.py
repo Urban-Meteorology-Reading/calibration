@@ -226,3 +226,20 @@ def scatter_correct_Vais(cloud_beta, range_km):
     Scat_correct_b[ind10,:]=Scat_correct_b[ind10,:]*0.76088
 
     return (Scat_correct_b)
+
+def corr_beta(Scat_beta, beta_data):
+    """
+    # MERGE SCATTERING CORRECTION WITH BETA DATA
+    Locate nans placed by finding cloud(see above)
+    replace with beta values
+    s_cor_beta is array of beta with scatting correction applied to 30 gates around max beta
+    """
+    s_cor_beta = np.copy(Scat_beta)
+
+    for prof in xrange(len(np.transpose(s_cor_beta))):
+        index_n = np.isnan(Scat_beta[:, prof])
+        thenans = np.where(index_n == True)
+        for locnan in xrange(len(thenans)):
+            s_cor_beta[(thenans[locnan]), prof] = beta_data[(thenans[locnan]), prof]
+
+    return (s_cor_beta)
