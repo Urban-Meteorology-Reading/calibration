@@ -13,9 +13,10 @@ import operator
 from scipy import stats
 
 
+
 # Reading ------------------------------------------------------------
 
-def mo_create_filenames(main_day):
+def mo_create_filename(main_day):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
@@ -23,19 +24,19 @@ def mo_create_filenames(main_day):
     :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
     :return: yest_filepath: full filepath to yesterday's data
     :return: day_filepath: full filepath to day's data
+    return: mod: model name
 
     EW 08/03/18
     """
 
     from os.path import exists
 
-    # set file choose flag to 0. Change it to 1 once a good file has been chosen
-    file_choose_flag = 0
-
     # main data dir
-    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    # datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
 
     # get UKV filename
+    mod = 'UKV'
     filename = 'MOUKV_FC'+main_day.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
     filepath = datadir_mo + filename
 
@@ -44,17 +45,64 @@ def mo_create_filenames(main_day):
 
         # get London model filename
         # London file existance will be checked outsite this function
+        mod = 'LON'
         filename = 'MOLON_FC' + main_day.strftime('%Y%m%d') + '06Z_WXT_KSSW.nc'
         filepath = datadir_mo + filename
 
-    return filepath
+    return filepath, mod
 
-def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, time_data, beta_data):
+def time_to_datetime(tstr, timeRaw):
+
+    """
+    Convert 'time since:... and an array/list of times into a list of datetimes
+
+    :param tstr: string along the lines of 'secs/mins/hours since ........'
+    :param timeRaw:
+    :return: list of processed times
+    """
+
+    import datetime as dt
+
+    # sort out times and turn into datetimes
+    # tstr = datafile.variables['time'].units
+    tstr = tstr.replace('-', ' ')
+    tstr = tstr.split(' ')
+
+    # Datetime
+    # ---------------
+    # create list of datetimes for export
+    # start date in netCDF file
+    start = dt.datetime(int(tstr[2]), int(tstr[3]), int(tstr[4]))
+
+    # get delta times from the start date
+    # time: time in minutes since the start time (taken from netCDF file)
+    if tstr[0] == 'seconds':
+        delta = [dt.timedelta(seconds=int(timeRaw[i])) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'minutes':
+        delta = [dt.timedelta(seconds=timeRaw[i] * 60) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'hours':
+        delta = [dt.timedelta(seconds=timeRaw[i] * 3600) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'days':
+        delta = [dt.timedelta(days=timeRaw[i]) for i in np.arange(0, len(timeRaw))]
+
+    if 'delta' in locals():
+        return [start + delta[i] for i in np.arange(0, len(timeRaw))]
+    else:
+        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
+        return
+
+#  yest_filepath, day_filepath, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter']
+def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod, day, range_data, time_data, beta_data):
 
     """
     Calculate the transmission given the presence of water vapour
     :param yest_filepath:
     :param day_filepath:
+    :param yest_mod: model yesterday's forecast came from
+    :param day:mod: model today's forecast came from
     :param day: the main data the calbration is for [datetime object]
     :param range_data: range (not height) [m]
     :param time_data:
@@ -93,11 +141,12 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
         forecast_time = file.variables['forecast'][:]
         data['pro_time'] = np.array([pro_start_time + dt.timedelta(hours=int(i)) for i in forecast_time])
 
-        # height
-        data['height'] = file.variables['height'][:, 1, 1]
+        # height - height1 = Theta levels, which all these variables are also on; just 'height' in forecast file
+        #   is rho levels, which is incorrect to use here.
+        data['height'] = file.variables['height1'][:, 1, 1]
 
         # pressure [Pa] .shape(1, time, height, 3, 3)
-        data['pressure'] = file.variables['P_rhoLev'][0, :, :, 1, 1]
+        data['pressure'] = file.variables['P_thetaLev'][0, :, :, 1, 1]
 
         # temperature [K]
         data['air_temperature'] = file.variables['T_m'][0, :, :, 1, 1]
@@ -126,12 +175,17 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
     #       previous forecast.
 
     # hour to start for day and to go up to for yest.
-    #   e.g. | yest -----> |[day, hr=forecast hour of day + 3 hours of wind up] day ---------> |
+    # if UKV data was used for yest, then we can have 3 hours of wind up time for the 'day' forecast, as UKV forecasts
+    #   have 36 hrs + of data. However, if London model was used, they only store 24 hours, so we can't use 3 hours.
+    #   Luckily though, we can use 1 hour, as the very last hour of yesterday's forecast = start time of day's
+    #   forecast
+    #   e.g. | yest -----> |[day, hr=forecast hour of day + 3 hours of wind up] day ---------> | if yest == UKV
+    #        | yest -----> |[day, hr=forecast hour of day + 1 hours of wind up] day ---------> | if yest == LON
     day_forecast_start_hour = day_data['pro_time'][0].hour # forecast start time
-    split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
-    # get booleon arrays for each forecast
-    # yest_idx = np.array([split_time > i for i in yest_data['pro_time']])
-    # day_idx = np.array([split_time <= i for i in day_data['pro_time']])
+    if yest_mod == 'UKV':
+        split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
+    else:
+        split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 1, day.minute, day.second)
 
     # yest: if time is before split_time and on the same day as 'day'
     # day: if time is after or the same as split time, or the time is exactly hour 0 of the next day as we
@@ -374,7 +428,7 @@ def lidar_ratio(Scat_correct_b, range_data):
 
     :param Scat_correct_b: scatter corrected beta data (attenuated backscatter coefficient)
     :param range_data:
-    :return: S, S2: lidar ratio (ratio backscatter coefficient to extinction coefficient)
+    :return: S : lidar ratio (ratio backscatter coefficient to extinction coefficient)
 
     """
 
@@ -386,7 +440,6 @@ def lidar_ratio(Scat_correct_b, range_data):
     # Integrated from 0.2 - 2400km
     inc_beta = Scat_correct_b[begin:GateMax,:]      #betas between 0.2 - 2400km
     S = []
-    S2 = []
     for i in xrange(len(np.transpose(inc_beta))):
         peak, value = max(enumerate(inc_beta[:,i]), key=operator.itemgetter(1))
         B_aer_prof = ((sum(inc_beta[:(peak-8),i]))*gatesize)
@@ -400,12 +453,10 @@ def lidar_ratio(Scat_correct_b, range_data):
         prof_S = ((integrate_S*2)**-1)
         prof_tot_S = ((B_tot*2)**-1)
         S.append(prof_S)
-        S2.append(prof_tot_S)
 
     S = list(S)
-    S2 = list(S2)
 
-    return(S, S2)
+    return S
 
 def get_counts(variable):
 
@@ -820,48 +871,3 @@ def S_mode_mean(Step2_S, Cal_hist):
         CL_stdev = np.nan
 
     return (peak, mode, mean, median, sem, stdev, C_mode, C_median, C_stdev, CL_median, CL_stdev)
-
-# Additional functions
-
-def time_to_datetime(tstr, timeRaw):
-
-    """
-    Convert 'time since:... and an array/list of times into a list of datetimes
-
-    :param tstr: string along the lines of 'secs/mins/hours since ........'
-    :param timeRaw:
-    :return: list of processed times
-    """
-
-    import datetime as dt
-
-    # sort out times and turn into datetimes
-    # tstr = datafile.variables['time'].units
-    tstr = tstr.replace('-', ' ')
-    tstr = tstr.split(' ')
-
-    # Datetime
-    # ---------------
-    # create list of datetimes for export
-    # start date in netCDF file
-    start = dt.datetime(int(tstr[2]), int(tstr[3]), int(tstr[4]))
-
-    # get delta times from the start date
-    # time: time in minutes since the start time (taken from netCDF file)
-    if tstr[0] == 'seconds':
-        delta = [dt.timedelta(seconds=int(timeRaw[i])) for i in np.arange(0, len(timeRaw))]
-
-    elif tstr[0] == 'minutes':
-        delta = [dt.timedelta(seconds=timeRaw[i] * 60) for i in np.arange(0, len(timeRaw))]
-
-    elif tstr[0] == 'hours':
-        delta = [dt.timedelta(seconds=timeRaw[i] * 3600) for i in np.arange(0, len(timeRaw))]
-
-    elif tstr[0] == 'days':
-        delta = [dt.timedelta(days=timeRaw[i]) for i in np.arange(0, len(timeRaw))]
-
-    if 'delta' in locals():
-        return [start + delta[i] for i in np.arange(0, len(timeRaw))]
-    else:
-        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
-        return
