@@ -225,19 +225,6 @@ for site_id in site_ids:
         CL_medians = []
         CL_stdevs = []
 
-        # ### 2 where relating to aer correction...
-        # modes2 = []          #array of mode of S for each day
-        # means2 = []          #array of mean of S for each day
-        # medians2 = []        #array of median of S for each day
-        # sems2 = []           #array of standard error of S for each day
-        # stdevs2 = []         #array of standard deviation of S for each day
-        # C_modes2 = []
-        # C_medians2 = []
-        # C_stdevs2 = []
-        # CL_medians2 = []
-        # CL_stdevs2 = []
-        # All_S2 = []
-
         # water corrected calibration
         modes_wv = []          #array of mode of S for each day
         means_wv = []          #array of mean of S for each day
@@ -271,10 +258,6 @@ for site_id in site_ids:
 
         profiles_in_row = []
         file_locs = []
-
-        # # load KSS45W and NK calibrations by Emma to compare with
-        # c_wv_old_kss45w = load_old_kss45w_c_wv()
-        # c_wv_old_nk = load_old_nk_c_wv()
 
         # loop through each day individually, create calibration coefficient and store in list variables
 
@@ -354,14 +337,12 @@ for site_id in site_ids:
 
                 # Remove profiles unsuitable for calibration
                 Step1_S, profile_B_ratio = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
-                ###Step1_S2, profile_B_ratio2 = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S2)  # aerosol ratio = 5%
 
                 ##Apply S Filters
                 Step2_S = lcu.step2_Sfilt(Step1_S, 10, cont_profs)  # range in S = 10%
-                ###Step2_S2 = lcu.step2_Sfilt(Step1_S2, 10, cont_profs)
                 # remove neg values caused by neg noise
                 Step2_S[Step2_S < 0] = np.nan
-                ###Step2_S2[Step2_S2 < 0] = np.nan
+
 
                 ## 2. Calculate S with water vapour correction
 
@@ -386,10 +367,6 @@ for site_id in site_ids:
                 Cal_hist_wv, no_of_profs_wv = lcu.get_counts(Step2_S_wv)  # Histogram of filtered S
                 no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = lcu.S_mode_mean(
                 Step2_S_wv, Cal_hist_wv)
-
-                ### Cal_hist2, no_of_profs2 = lcu.get_counts(Step2_S2)  # Histogram of filtered S
-                ### no_in_peak2, day_mode2, day_mean2, day_median2, day_sem2, day_stdev2, dayC_mode2, dayC_median2, dayC_stdev2, dayCL_median2, dayCL_stdev2 = lcu.S_mode_mean(
-                ### Step2_S2, Cal_hist2)
 
 
                 ## Append statistics for each
@@ -417,19 +394,6 @@ for site_id in site_ids:
                 C_stdevs.append(dayC_stdev)
                 CL_medians.append(dayCL_median)
                 CL_stdevs.append(dayCL_stdev)
-
-                # # profile_total2.append(no_of_profs2)
-                # # peak_total2.append(no_in_peak2)
-                # modes2.append(day_mode2)
-                # means2.append(day_mean2)
-                # medians2.append(day_median2)
-                # sems2.append(day_sem2)
-                # stdevs2.append(day_stdev2)
-                # C_modes2.append(dayC_mode2)
-                # C_medians2.append(dayC_median2)
-                # C_stdevs2.append(dayC_stdev2)
-                # CL_medians2.append(dayCL_median2)
-                # CL_stdevs2.append(dayCL_stdev2)
 
                 modes_wv.append(day_mode_wv)
                 means_wv.append(day_mean_wv)
