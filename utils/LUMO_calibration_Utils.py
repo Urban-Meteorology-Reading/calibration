@@ -16,10 +16,10 @@ from scipy import stats
 
 # Reading ------------------------------------------------------------
 
-def mo_create_filenames(day, datadir_mo):
+def mo_create_filenames(main_day):
 
     """
-    Create the filenames for the MO data to read in.
+    Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
     :param day: [datetime]
     :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
     :return: yest_filepath: full filepath to yesterday's data
@@ -28,17 +28,27 @@ def mo_create_filenames(day, datadir_mo):
     EW 08/03/18
     """
 
-    # get yesterday's time too, for the MO NWP file read in
-    yest = day - dt.timedelta(days=1)
+    from os.path import exists
 
-    # get MO filepaths for the water vapour
-    yesterday_filename = 'MOUKV_FC'+yest.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
-    day_filename = 'MOUKV_FC'+day.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
+    # set file choose flag to 0. Change it to 1 once a good file has been chosen
+    file_choose_flag = 0
 
-    yest_filepath = datadir_mo + yesterday_filename
-    day_filepath = datadir_mo + day_filename
+    # main data dir
+    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
 
-    return yest_filepath, day_filepath
+    # get UKV filename
+    filename = 'MOUKV_FC'+main_day.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
+    filepath = datadir_mo + filename
+
+    # if UKV doesn't exit, try LON file
+    if exists(filepath) == False:
+
+        # get London model filename
+        # London file existance will be checked outsite this function
+        filename = 'MOLON_FC' + main_day.strftime('%Y%m%d') + '06Z_WXT_KSSW.nc'
+        filepath = datadir_mo + filename
+
+    return filepath
 
 def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, time_data, beta_data):
 
@@ -122,8 +132,14 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
     day_forecast_start_hour = day_data['pro_time'][0].hour # forecast start time
     split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
     # get booleon arrays for each forecast
-    yest_idx = np.array([split_time > i for i in yest_data['pro_time']])
-    day_idx = np.array([split_time <= i for i in day_data['pro_time']])
+    # yest_idx = np.array([split_time > i for i in yest_data['pro_time']])
+    # day_idx = np.array([split_time <= i for i in day_data['pro_time']])
+
+    # yest: if time is before split_time and on the same day as 'day'
+    # day: if time is after or the same as split time, or the time is exactly hour 0 of the next day as we
+    #   want to day 00:00 to 24:00 inclusively (array size = 25)
+    yest_idx = np.array([np.logical_and(split_time > i, day.date() == i.date()) for i in yest_data['pro_time']])
+    day_idx = np.array([np.logical_and(split_time <= i, day + dt.timedelta(days=1) >= i) for i in day_data['pro_time']])
 
     # day_idx = np.arange(19) # Emma's old idx
     # yest_idx = np.arange(31, len(yest_data['pro_time'])) # Emma's old idx
@@ -152,7 +168,7 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
 
     ####Interpolate model onto observation space#####
 
-    WV_newgrid = np.zeros((25, (len(range_data))))
+    WV_newgrid = np.zeros((len(data['pro_time']), (len(range_data))))
     for i in xrange(len(WV_newgrid)):
         WV_newgrid[i, :] = griddata(data['height'], ukv_density2[i, :], range_data, method='linear')
 
@@ -665,27 +681,22 @@ def S_mode_mean(Step2_S, Cal_hist):
 
 # Plotting -------------------------------------------------------------
 
-def Plot_ashist(variable):
+def get_counts(variable):
+
+    """
+    Get number of profiles per bin and number of profiles in total
+    :param variable:
+    :return: counts, total number of profiles
+    """
+
     v = np.copy(variable)
     v[np.isnan(v)] = 0
     vartoplot = v[np.nonzero(v)]
     if len(vartoplot) > 2:
         b = (np.round(np.max(vartoplot)))
 
-        # plt.figure(figsize = (6,4))
-        counts, bins, range = plt.hist(vartoplot, bins=(2 * b), range=(0, b))
-        # # plt.xticks(np.arange(0, 110, 10.0), fontsize = 18)
-        # plt.yticks(fontsize=18)
-        # # plt.axis(xmax = b+1, xmin = 16)
-        # bin_centers = 0.5 * np.diff(bins) + bins[:-1]
-        #
-        # plt.title('S', fontsize=20)
-        # plt.xlabel('Apparent S [sr]', fontsize=18)
-        # plt.ylabel('Frequency', fontsize=18)
-        # plt.tight_layout()
-        #
-        # # plt.axis(xmax = 100)
-        # plt.show()
+        counts, bins = np.histogram(vartoplot, bins=(2 * b), range=(0, b))
+
     else:
         counts = 0
     return (counts, len(vartoplot))
