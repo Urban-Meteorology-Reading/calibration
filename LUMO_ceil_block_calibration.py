@@ -22,16 +22,15 @@ ToDo list:
 
 import sys
 # append dir containing utility library
-sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+# sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
+
 import LUMO_calibration_Utils as lcu
 
 import os # operating system library to issue Unix commands
 import numpy as np # numerical python library for arrays and mathematical functions
 import datetime as dt
-import ellUtils as eu
-import ceilUtils as ceil
 from netCDF4 import Dataset
-
 
 def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
                             site_id, site, year):
@@ -104,56 +103,57 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     return
 
-# compare agaisnt values produced with this code
-def load_old_kss45w_c_wv():
-    """
-    Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
-    by this script.
-    :return:
-    """
-
-    import pickle
-
-    calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
-                 'Calibrations_for_LUMO_Ceilometers/'
-
-    filename = calib_path + 'CL31-A_KSS45W' + '_window_trans_daily_cpro.pickle'
-
-    # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
-
-    # load calibration data (using pickle)
-    with open(filename, 'rb') as handle:
-        c_wv_old_kss45w = pickle.load(handle)
-
-    return c_wv_old_kss45w
-def load_old_nk_c_wv():
-    """
-    Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
-    by this script.
-    :return:
-    """
-
-    import pickle
-
-    calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
-                 'Calibrations_for_LUMO_Ceilometers/'
-
-    filename = calib_path + 'CL31-D_NK' + '_window_trans_daily_cpro.pickle'
-
-    # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
-
-    # load calibration data (using pickle)
-    with open(filename, 'rb') as handle:
-        c_wv_old_kss45w = pickle.load(handle)
-
-    return c_wv_old_kss45w
+# # compare agaisnt values produced with this code
+# def load_old_kss45w_c_wv():
+#     """
+#     Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
+#     by this script.
+#     :return:
+#     """
+#
+#     import pickle
+#
+#     calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
+#                  'Calibrations_for_LUMO_Ceilometers/'
+#
+#     filename = calib_path + 'CL31-A_KSS45W' + '_window_trans_daily_cpro.pickle'
+#
+#     # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
+#
+#     # load calibration data (using pickle)
+#     with open(filename, 'rb') as handle:
+#         c_wv_old_kss45w = pickle.load(handle)
+#
+#     return c_wv_old_kss45w
+# def load_old_nk_c_wv():
+#     """
+#     Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
+#     by this script.
+#     :return:
+#     """
+#
+#     import pickle
+#
+#     calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
+#                  'Calibrations_for_LUMO_Ceilometers/'
+#
+#     filename = calib_path + 'CL31-D_NK' + '_window_trans_daily_cpro.pickle'
+#
+#     # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
+#
+#     # load calibration data (using pickle)
+#     with open(filename, 'rb') as handle:
+#         c_wv_old_kss45w = pickle.load(handle)
+#
+#     return c_wv_old_kss45w
 
 # ----------------------------
 # Setup
 # ----------------------------
 
 # ceilometers to loop through (full ceilometer ID)
-site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
+site_ids = ['CL31-A_KSS45W']
+#  site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
 
 # years to loop through [list]
@@ -169,7 +169,7 @@ years = [2015]
 #datadir_mo ='C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
 
 # netCDF savedir
-ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
+# ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
 
 # time to loop through
 # start_date = dt.datetime(2014, 11, 27)
@@ -198,10 +198,10 @@ for site_id in site_ids:
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
         start_date = dt.datetime(year, 1, 01)  # comparing my modes to EH modes
-        end_date = dt.datetime(year, 12, 31)
+        end_date = dt.datetime(year, 3, 31)
         # start_date = dt.datetime(year, 1, 02)  # comparing my modes to EH modes
         # end_date = dt.datetime(year, 1, 12)
-        date_range = eu.date_range(start_date, end_date, 1, 'day')
+        date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
         time_deltas = [i - dt.datetime(year,1,01) for i in date_range]
@@ -300,7 +300,7 @@ for site_id in site_ids:
             if os.path.isfile(bsc_filepath) == True:
 
                 # read in L1 unscmoothed backscatter data (do not correct for SNR)
-                bsc_data, _ = ceil.netCDF_read_BSC(bsc_filepath, var_type='beta', SNRcorrect=False)
+                bsc_data, _ = lcu.netCDF_read_BSC(bsc_filepath, var_type='beta', SNRcorrect=False)
 
                 # transpose the backscatter for EH functions
                 bsc_data['backscatter'] = np.transpose(bsc_data['backscatter'])
