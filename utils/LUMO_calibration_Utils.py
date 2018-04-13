@@ -10,7 +10,6 @@ from netCDF4 import Dataset
 import numpy as np
 import datetime as dt
 import operator
-import matplotlib.pyplot as plt
 from scipy import stats
 
 
@@ -69,7 +68,6 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
 
     from scipy import integrate
     from scipy.interpolate import griddata
-    import ellUtils as eu
 
     # read in data from a single file
     def read_single_mo_file(filepath):
@@ -91,7 +89,7 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
         # get time
         raw_start_time = file.variables['time'][:]
         tstr = file.variables['time'].units
-        pro_start_time = eu.time_to_datetime(tstr, raw_start_time)[0]
+        pro_start_time = time_to_datetime(tstr, raw_start_time)[0]
         forecast_time = file.variables['forecast'][:]
         data['pro_time'] = np.array([pro_start_time + dt.timedelta(hours=int(i)) for i in forecast_time])
 
@@ -191,6 +189,92 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, range_data, t
 
     return (ukv_transmissivity)
 
+def netCDF_read_BSC(datapath, var_type='beta_tR', SNRcorrect=True):
+
+    """
+    Read in backscatter data
+
+    Gets data level and instrument model from metadata. Converts dates into list of datetimes, again using metadata
+    to find the relative epoch
+
+    :param datapath:
+    :param var_type:
+    :return: data: (dictionary)
+    :return ceilLevel: level of the ceilometer
+
+    Taken from ceilUtils.py - EW's ceilometer utils
+    """
+
+    # module imports needed to run the function
+    from netCDF4 import Dataset
+    import numpy as np
+
+    ## Read data in
+    # ------------------------
+
+    # Create variable that is linked to filename
+    # opens the file, but doesn't do the reading in just yet.
+    datafile = Dataset(datapath, 'r')
+
+    # get ceil data level from metadata
+    ceilLevel = str(datafile.Data_level)
+
+    # get sensor type from metadata
+    sensorType = str(datafile.Title).split('_')[0]
+
+    # Test that sensorType is either CT25K or CL31, if not raise exception
+    if (sensorType == 'CL31' or sensorType == 'CT25K') == False:
+        raise ValueError('sensorType given is not CT25K or CL31')
+
+    # Extract data and remove single dimension entries at the same time
+    if ceilLevel == 'L0':
+        data = {'backscatter': np.squeeze(datafile.variables['BSC'][:])}
+
+        if sensorType == 'CL31':
+            data['backscatter'] = data['backscatter'] * 1e-8
+            # data['backscatter'] = np.ma.transpose(data['backscatter']) * 1e-8
+        elif sensorType == 'CT25K':
+            data['backscatter'] = data['backscatter'] * 1e-7
+
+    elif ceilLevel == 'L1':
+        data = {'backscatter': np.squeeze(datafile.variables[var_type][:]),
+                'SNR': np.squeeze(datafile.variables['SNR'][:])}
+
+        if sensorType == 'CL31':
+            data['backscatter'] = data['backscatter'] * 1e-12
+        elif sensorType == 'CT25K':
+            raise ValueError('L1 CT25K data read in, edit script to assign multiplication value (e.g. 10-12)')
+            # raw = np.ma.transpose(raw) * 1e-7
+
+        if SNRcorrect == True:
+            # Signal-to-noise ratio filter
+            # 0.05 - relaxed (kept ~50% data of LUMA data)
+            # 0.2 - stricter (kept ~10% data of LUMA data)
+            # 0.3 - self set to further reduce noise above BL - checked against profile plots of high PM10 day (19/01/16)
+            data['backscatter'][data['SNR'] < 0.5] = np.nan
+
+    # read in height
+    data['height'] = np.squeeze(datafile.variables['height'][:])
+
+    # create range [m]
+    if sensorType == 'CL31':
+        step = 10.0 # range gate resolution
+    elif sensorType == 'CT25K':
+        step = 30.0
+
+    data['range'] = np.arange(step, 7700 + step, step)
+
+    # Time
+    # -------------
+
+    # get time units for time conversion
+    tstr = datafile.variables['time'].units
+
+    # Read in time and convert to list of datetimes
+    rawtime = np.squeeze(datafile.variables['time'][:])
+    data['time'] = np.array(time_to_datetime(tstr, rawtime))
+
+    return data, ceilLevel
 
 # Processing ------------------------------------------------------------
 
@@ -322,6 +406,64 @@ def lidar_ratio(Scat_correct_b, range_data):
     S2 = list(S2)
 
     return(S, S2)
+
+def get_counts(variable):
+
+    """
+    Get number of profiles per bin and number of profiles in total
+    :param variable:
+    :return: counts, total number of profiles
+    """
+
+    v = np.copy(variable)
+    v[np.isnan(v)] = 0
+    vartoplot = v[np.nonzero(v)]
+    if len(vartoplot) > 2:
+        b = (np.round(np.max(vartoplot)))
+
+        counts, bins = np.histogram(vartoplot, bins=(2 * b), range=(0, b))
+
+    else:
+        counts = 0
+    return (counts, len(vartoplot))
+
+def date_range(start_date, end_date, increment, period):
+
+    """
+    Create a range of datetime dates
+
+    # start_date is a datetime variable
+    # end_date is a datetime variable
+    # increment is the time e.g. 10, 20, 100
+    # period is the time string e.g. 'seconds','minutes', 'days'
+
+    :param start_date:
+    :param end_date:
+    :param increment:
+    :param period:
+    :return:
+
+    period is the plural of the time period e.g. days and not day, minuts and not minute. If the singular is given,
+    the code will replace it
+    """
+
+    # replace period string with plural, if it was singlar
+    if period == 'day':
+        period = 'days'
+    elif period == 'minute':
+        period = 'minutes'
+    elif period == 'second':
+        period = 'seconds'
+
+    from dateutil.relativedelta import relativedelta
+
+    result = []
+    nxt = start_date
+    delta = relativedelta(**{period:increment})
+    while nxt <= end_date:
+        result.append(nxt)
+        nxt += delta
+    return np.array(result)
 
 ## Filtering
 
@@ -679,24 +821,47 @@ def S_mode_mean(Step2_S, Cal_hist):
 
     return (peak, mode, mean, median, sem, stdev, C_mode, C_median, C_stdev, CL_median, CL_stdev)
 
-# Plotting -------------------------------------------------------------
+# Additional functions
 
-def get_counts(variable):
+def time_to_datetime(tstr, timeRaw):
 
     """
-    Get number of profiles per bin and number of profiles in total
-    :param variable:
-    :return: counts, total number of profiles
+    Convert 'time since:... and an array/list of times into a list of datetimes
+
+    :param tstr: string along the lines of 'secs/mins/hours since ........'
+    :param timeRaw:
+    :return: list of processed times
     """
 
-    v = np.copy(variable)
-    v[np.isnan(v)] = 0
-    vartoplot = v[np.nonzero(v)]
-    if len(vartoplot) > 2:
-        b = (np.round(np.max(vartoplot)))
+    import datetime as dt
 
-        counts, bins = np.histogram(vartoplot, bins=(2 * b), range=(0, b))
+    # sort out times and turn into datetimes
+    # tstr = datafile.variables['time'].units
+    tstr = tstr.replace('-', ' ')
+    tstr = tstr.split(' ')
 
+    # Datetime
+    # ---------------
+    # create list of datetimes for export
+    # start date in netCDF file
+    start = dt.datetime(int(tstr[2]), int(tstr[3]), int(tstr[4]))
+
+    # get delta times from the start date
+    # time: time in minutes since the start time (taken from netCDF file)
+    if tstr[0] == 'seconds':
+        delta = [dt.timedelta(seconds=int(timeRaw[i])) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'minutes':
+        delta = [dt.timedelta(seconds=timeRaw[i] * 60) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'hours':
+        delta = [dt.timedelta(seconds=timeRaw[i] * 3600) for i in np.arange(0, len(timeRaw))]
+
+    elif tstr[0] == 'days':
+        delta = [dt.timedelta(days=timeRaw[i]) for i in np.arange(0, len(timeRaw))]
+
+    if 'delta' in locals():
+        return [start + delta[i] for i in np.arange(0, len(timeRaw))]
     else:
-        counts = 0
-    return (counts, len(vartoplot))
+        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
+        return
