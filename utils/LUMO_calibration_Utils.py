@@ -32,8 +32,8 @@ def mo_create_filename(main_day):
     from os.path import exists
 
     # main data dir
-    # datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
-    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
+    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    # datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
 
     # get UKV filename
     mod = 'UKV'
@@ -118,21 +118,51 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     from scipy.interpolate import griddata
 
     # read in data from a single file
-    def read_single_mo_file(filepath):
+    def read_single_mo_file(filepath, mod):
 
         """
         Read in MO data from a single file
-        :param filepath: single day filepath
+        :param filepath: single day filepath [str]
+        :param mod: model used for forecast [str]
         :return: data [dictionary] variables within it
+
+        Note: UKV has an extra height at the top, of 0.0 m and all the variables at that height are
+        nans... for some reason. Difference between UKV and LON heights
+            are v. small (linear decrease from - at 0 m agl, ~4 m at 5000 km agl; becoming
+            constant at -12 m at 15000 and above agl). Therefore if UKV, remove the top height.
 
         EW 09/03/18
         """
+
 
         # define dictionary
         data ={}
 
         # open files
         file = Dataset(filepath)
+
+        # -------------------
+        # Sort height issue with UKV vs LON out
+
+        # if UKV have it remove the top height... otherwise, if LON then keep all heights
+        height_raw = file.variables['height1'][:, 1, 1]
+        # double check number of heights is 71 and the issue with the UKV top level is still probably there. If
+        # len(heights) != 71, then the issue might have gone, therefore break the read in so it can be checked by
+        # the user.
+        if (mod == 'UKV') & (len(height_raw) != 71):
+            raise ValueError('UKV data read in but heights != 71, therefore issue with top level might have changed.../n'
+                             'check the forecast data top level!')
+
+        # if
+        if mod == 'UKV':
+            # up to but not including the top level (usually level 70)
+            height_range_idx = np.arange(len(height_raw)-1)
+        else:
+            # include the top
+            height_range_idx = np.arange(len(height_raw))
+
+        # ----------------
+        # Read in the main data
 
         # get time
         raw_start_time = file.variables['time'][:]
@@ -143,16 +173,16 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
 
         # height - height1 = Theta levels, which all these variables are also on; just 'height' in forecast file
         #   is rho levels, which is incorrect to use here.
-        data['height'] = file.variables['height1'][:, 1, 1]
+        data['height'] = file.variables['height1'][height_range_idx, 1, 1]
 
         # pressure [Pa] .shape(1, time, height, 3, 3)
-        data['pressure'] = file.variables['P_thetaLev'][0, :, :, 1, 1]
+        data['pressure'] = file.variables['P_thetaLev'][0, :, height_range_idx, 1, 1]
 
         # temperature [K]
-        data['air_temperature'] = file.variables['T_m'][0, :, :, 1, 1]
+        data['air_temperature'] = file.variables['T_m'][0, :, height_range_idx, 1, 1]
 
         # Specific humidity [kg kg-1]
-        data['q'] = file.variables['QV'][0, :, :, 1, 1]
+        data['q'] = file.variables['QV'][0, :, height_range_idx, 1, 1]
 
         # calculate air density
         data['dry_air_density'] = np.array(data['pressure']) / (Rstar * np.array(data['air_temperature']))
@@ -164,8 +194,8 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     Rstar = 287
 
     # read in and concatonate the two files
-    yest_data = read_single_mo_file(yest_filepath)
-    day_data = read_single_mo_file(day_filepath)
+    yest_data = read_single_mo_file(yest_filepath, yest_mod)
+    day_data = read_single_mo_file(day_filepath, day_mod)
 
 
     # trim and merge data from both forecasts to get data for the main day - get idx to identify which data to keep for each forecast
@@ -187,6 +217,7 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     else:
         split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 1, day.minute, day.second)
 
+
     # yest: if time is before split_time and on the same day as 'day'
     # day: if time is after or the same as split time, or the time is exactly hour 0 of the next day as we
     #   want to day 00:00 to 24:00 inclusively (array size = 25)
@@ -195,6 +226,15 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
 
     # day_idx = np.arange(19) # Emma's old idx
     # yest_idx = np.arange(31, len(yest_data['pro_time'])) # Emma's old idx
+
+    print 'yest_mod == ' + yest_mod
+    print 'day_mod == ' + day_mod
+    print 'yest_path = ' + yest_filepath
+    print 'day_path =' + day_filepath
+    print 'yest idx:'
+    print yest_data['pro_time'][yest_idx]
+    print 'day idx:'
+    print day_data['pro_time'][day_idx]
 
     # merge the data
     data = {}
@@ -871,3 +911,77 @@ def S_mode_mean(Step2_S, Cal_hist):
         CL_stdev = np.nan
 
     return (peak, mode, mean, median, sem, stdev, C_mode, C_median, C_stdev, CL_median, CL_stdev)
+
+## Saving
+
+def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
+                            site_id, site, year):
+    """
+    Save the year's calibration data in a netCDF file. Store it in the ANNUAL folder
+    :param C_modes_wv: wv is with water vapour correction
+    :param C_medians_wv:
+    :param C_modes:
+    :param C_medians:
+    :param profile_total:
+    :param date_range_netCDF: days since 1st Jan of the year being processed
+    :param site_id: full site id e.g. 'CL31-A_KSS45W'
+    :param site: site name e.g. 'KSS45W'
+    :param year: year processed [int]
+    :return:
+
+    EW 13//04/18
+    """
+
+    # Create save file id (put CAL in the id)
+    a = site_id.split('_')
+    site_save_id = a[0] + '_CAL_' + a[1]
+
+    ncsavedir = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
+    # ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
+
+    # Create save filename
+    ncfilename = site_save_id + '_' + str(year) + '.nc'
+
+    # Create netCDF file
+    ncfile = Dataset(ncsavedir + '/' + ncfilename, 'w')
+
+    # Create dimensions
+    ncfile.createDimension('time', len(date_range))
+
+    # Create co-ordinate variables
+    nc_time = ncfile.createVariable('time', np.float64, ('time',))
+    nc_time[:] = date_range_netcdf  # days since 1st Jan of this year
+    nc_time.units = 'days since ' + dt.datetime(year, 1, 01).strftime('%Y-%m-%d %H:%M:%S')
+
+    # Create main variables
+    nc_cal_mode_wv = ncfile.createVariable('CAL_mode_wv', np.float64, ('time',))
+    nc_cal_mode_wv[:] = C_modes_wv
+    nc_cal_mode_wv.long_name = 'modal calibration coefficient with water vapour correction'
+
+    nc_cal_median_wv = ncfile.createVariable('CAL_median_wv', np.float64, ('time',))
+    nc_cal_median_wv[:] = C_medians_wv
+    nc_cal_median_wv.long_name = 'median calibration coefficient with water vapour correction'
+
+    nc_cal_mode = ncfile.createVariable('CAL_mode', np.float64, ('time',))
+    nc_cal_mode[:] = C_modes
+    nc_cal_mode.long_name = 'modal calibration coefficient without water vapour correction'
+
+    nc_cal_median = ncfile.createVariable('CAL_median', np.float64, ('time',))
+    nc_cal_median[:] = C_medians
+    nc_cal_median.long_name = 'median calibration coefficient without water vapour correction'
+
+    nc_profile_total = ncfile.createVariable('profile_total', np.float64, ('time',))
+    nc_profile_total[:] = profile_total
+
+    # Extra attributes
+    ncfile.history = 'Created ' + dt.datetime.now().strftime('%Y-%m-%d %H:%M') + ' GMT'
+    ncfile.site_id = site_id
+
+    # close file
+    ncfile.close()
+
+    # print status
+    print ncfilename + ' save successfully!'
+    print ''
+
+    return
