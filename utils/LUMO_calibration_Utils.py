@@ -227,14 +227,15 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     # day_idx = np.arange(19) # Emma's old idx
     # yest_idx = np.arange(31, len(yest_data['pro_time'])) # Emma's old idx
 
-    print 'yest_mod == ' + yest_mod
-    print 'day_mod == ' + day_mod
-    print 'yest_path = ' + yest_filepath
-    print 'day_path =' + day_filepath
-    print 'yest idx:'
-    print yest_data['pro_time'][yest_idx]
-    print 'day idx:'
-    print day_data['pro_time'][day_idx]
+    # diagnosing on the met cluster
+    # print 'yest_mod == ' + yest_mod
+    # print 'day_mod == ' + day_mod
+    # print 'yest_path = ' + yest_filepath
+    # print 'day_path =' + day_filepath
+    # print 'yest idx:'
+    # print yest_data['pro_time'][yest_idx]
+    # print 'day idx:'
+    # print day_data['pro_time'][day_idx]
 
     # merge the data
     data = {}
@@ -367,6 +368,8 @@ def netCDF_read_BSC(datapath, var_type='beta_tR', SNRcorrect=True):
     # Read in time and convert to list of datetimes
     rawtime = np.squeeze(datafile.variables['time'][:])
     data['time'] = np.array(time_to_datetime(tstr, rawtime))
+
+    datafile.close()
 
     return data, ceilLevel
 
@@ -946,7 +949,7 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     ncfile = Dataset(ncsavedir + '/' + ncfilename, 'w')
 
     # Create dimensions
-    ncfile.createDimension('time', len(date_range))
+    ncfile.createDimension('time', len(date_range_netcdf))
 
     # Create co-ordinate variables
     nc_time = ncfile.createVariable('time', np.float64, ('time',))
