@@ -7,177 +7,35 @@ Based on the cumulostratus calibration method developed by Hopkin et al., in pre
 and Lufft ceilometers but adapted here for use solely for LUMO ceilometers. Functions kept in the
 LUMO_ceilometer_Utils.py script.
 
-Data needed is:
+Data needed:
 - L1 BSC files (UNSMOOTHED attenuated backscatter from ceilometers)
-- L0 CCW30 files (transmission data)
 - Met Office NWP forecast files (water vapour correction: requiring, specific humidity, pressure and temperature)
 
 Created by Elliott Warren Thurs 08/03/2018
 Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
-
-ToDo list:
-- code works when output is compared to that produced by EH from their original script
-- code wants a 'tidy up' as several variables and steps are not needed for the LUMO processing
 """
 
 import sys
-# append dir containing utility library
-# sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+# append dir containing lcu utility library
 sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
+# sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
 
 import LUMO_calibration_Utils as lcu
 
-import os # operating system library to issue Unix commands
-import numpy as np # numerical python library for arrays and mathematical functions
+import os
+import numpy as np
 import datetime as dt
-from netCDF4 import Dataset
-
-def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
-                            site_id, site, year):
-    """
-    Save the year's calibration data in a netCDF file. Store it in the ANNUAL folder
-    :param C_modes_wv: wv is with water vapour correction
-    :param C_medians_wv:
-    :param C_modes:
-    :param C_medians:
-    :param profile_total:
-    :param date_range_netCDF: days since 1st Jan of the year being processed
-    :param site_id: full site id e.g. 'CL31-A_KSS45W'
-    :param site: site name e.g. 'KSS45W'
-    :param year: year processed [int]
-    :return:
-
-    EW 13//04/18
-    """
-
-    # Create save file id (put CAL in the id)
-    a = site_id.split('_')
-    site_save_id = a[0] + '_CAL_' + a[1]
-
-    ncsavedir = '/data/its-tier2/micromet/data/'+year+'/London/L1/'+site+'/ANNUAL/'
-
-    # Create save filename
-    ncfilename = site_save_id + '_' + str(year) + '.nc'
-
-    # Create netCDF file
-    ncfile = Dataset(ncsavedir + '/' + ncfilename, 'w')
-
-    # Create dimensions
-    ncfile.createDimension('time', len(date_range))
-
-    # Create co-ordinate variables
-    nc_time = ncfile.createVariable('time', np.float64, ('time',))
-    nc_time[:] = date_range_netcdf  # days since 1st Jan of this year
-    nc_time.units = 'days since ' + dt.datetime(year, 1, 01).strftime('%Y-%m-%d %H:%M:%S')
-
-    # Create main variables
-    nc_cal_mode_wv = ncfile.createVariable('CAL_mode_wv', np.float64, ('time',))
-    nc_cal_mode_wv[:] = C_modes_wv
-    nc_cal_mode_wv.long_name = 'modal calibration coefficient with water vapour correction'
-
-    nc_cal_median_wv = ncfile.createVariable('CAL_median_wv', np.float64, ('time',))
-    nc_cal_median_wv[:] = C_medians_wv
-    nc_cal_median_wv.long_name = 'median calibration coefficient with water vapour correction'
-
-    nc_cal_mode = ncfile.createVariable('CAL_mode', np.float64, ('time',))
-    nc_cal_mode[:] = C_modes
-    nc_cal_mode.long_name = 'modal calibration coefficient without water vapour correction'
-
-    nc_cal_median = ncfile.createVariable('CAL_median', np.float64, ('time',))
-    nc_cal_median[:] = C_medians
-    nc_cal_median.long_name = 'median calibration coefficient without water vapour correction'
-
-    nc_profile_total = ncfile.createVariable('profile_total', np.float64, ('time',))
-    nc_profile_total[:] = profile_total
-
-    # Extra attributes
-    ncfile.history = 'Created ' + dt.datetime.now().strftime('%Y-%m-%d %H:%M') + ' GMT'
-    ncfile.site_id = site_id
-
-    # close file
-    ncfile.close()
-
-    # print status
-    print ncfilename + ' save successfully!'
-    print ''
-
-    return
-
-# # compare agaisnt values produced with this code
-# def load_old_kss45w_c_wv():
-#     """
-#     Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
-#     by this script.
-#     :return:
-#     """
-#
-#     import pickle
-#
-#     calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
-#                  'Calibrations_for_LUMO_Ceilometers/'
-#
-#     filename = calib_path + 'CL31-A_KSS45W' + '_window_trans_daily_cpro.pickle'
-#
-#     # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
-#
-#     # load calibration data (using pickle)
-#     with open(filename, 'rb') as handle:
-#         c_wv_old_kss45w = pickle.load(handle)
-#
-#     return c_wv_old_kss45w
-# def load_old_nk_c_wv():
-#     """
-#     Quick load the old ceilometer calibration values done by EH the first time around, to compare with those being made
-#     by this script.
-#     :return:
-#     """
-#
-#     import pickle
-#
-#     calib_path = 'C:/Users/Elliott/Documents/PhD Reading/PhD Research/Aerosol Backscatter/clearFO/data/' \
-#                  'Calibrations_for_LUMO_Ceilometers/'
-#
-#     filename = calib_path + 'CL31-D_NK' + '_window_trans_daily_cpro.pickle'
-#
-#     # sort site name out (is in CL31-A_BSC_KSS45W format, but needs to be CL31-A_KSS45W
-#
-#     # load calibration data (using pickle)
-#     with open(filename, 'rb') as handle:
-#         c_wv_old_kss45w = pickle.load(handle)
-#
-#     return c_wv_old_kss45w
 
 # ----------------------------
 # Setup
 # ----------------------------
 
 # ceilometers to loop through (full ceilometer ID)
-site_ids = ['CL31-A_KSS45W']
-#  site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
-
+# site_ids = ['CL31-A_KSS45W']
+site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
 # years to loop through [list]
-years = [2015]
-
-# directories
-# final datadir structure needs to be...
-# /data/its-tier2/micromet/data/2017/London/L1/IMU/DAY/200/
-# NOTE: Make sure bsc files are from L0!! - EH cubing does it on unsmoothed L1 files, so do it on those.
-
-# datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/2015/London/L1/01/'
-#datadir_ccw30 = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/2015/01/'
-#datadir_mo ='C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
-
-# netCDF savedir
-# ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
-
-# time to loop through
-# start_date = dt.datetime(2014, 11, 27)
-# end_date = dt.datetime(2014, 11, 28)
-
-# # test day against EH cubed day '04.nc'
-# start_date = dt.datetime(2015, 1, 04)
-# end_date = dt.datetime(2015, 1, 05)
+years = [2016, 2017, 2018]
 
 # settings to tune calibration
 ratio_filt = 0.05
@@ -197,8 +55,8 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 1, 01)  # comparing my modes to EH modes
-        end_date = dt.datetime(year, 3, 31)
+        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
+        end_date = dt.datetime(year, 12, 31)
         # start_date = dt.datetime(year, 1, 02)  # comparing my modes to EH modes
         # end_date = dt.datetime(year, 1, 12)
         date_range = lcu.date_range(start_date, end_date, 1, 'day')
@@ -275,6 +133,8 @@ for site_id in site_ids:
 
             # find directory name for bsc data
             datadir_bsc = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
+            #datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/'+str(year)+\
+            #              '/London/L1/'+day.strftime('%m')+'/'
 
             # Note: L0 BSC heights are corrected for height above ground
             #       L1 BSC heights are NOT corrected and are therefore just the range...
@@ -314,14 +174,14 @@ for site_id in site_ids:
                 # get yesterday's time to get the right forecast file for the water vapour
                 yest = day - dt.timedelta(days=1)
 
-                # Get full file paths for the day and yesterday's (yest) MO data
-                yest_filepath = lcu.mo_create_filename(yest)
-                day_filepath = lcu.mo_create_filename(day)
+                # Get full file paths for the day and yesterday's (yest) MO data and which model the forecast came from
+                yest_filepath, yest_mod = lcu.mo_create_filename(yest)
+                day_filepath, day_mod = lcu.mo_create_filename(day)
 
                 # if both day's data exist, apply water vapour correction, else set backscatter to nan
                 if (os.path.exists(yest_filepath))  & (os.path.exists(day_filepath)):
                     # Calculate and apply transmissivity to multiple scattering, corrected backscatter data
-                    transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepath, day_filepath, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
+                    transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
                     beta_arr_wv = beta_arr * (1.0 / np.transpose(transmission_wv))
                 else:
                     beta_arr_wv = beta_arr * np.nan
@@ -333,12 +193,11 @@ for site_id in site_ids:
                 ## 1. Calculate lidar ratio (S) without water vapour correction
 
                 # calculate S, including transmission correction (on non water vapour corrected profiles)
-                S, S2 = lcu.lidar_ratio(beta_arr, bsc_data['range_km'])
+                S = lcu.lidar_ratio(beta_arr, bsc_data['range_km'])
 
                 # Remove profiles unsuitable for calibration
+                ## Apply S Filters
                 Step1_S, profile_B_ratio = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
-
-                ##Apply S Filters
                 Step2_S = lcu.step2_Sfilt(Step1_S, 10, cont_profs)  # range in S = 10%
                 # remove neg values caused by neg noise
                 Step2_S[Step2_S < 0] = np.nan
@@ -347,7 +206,7 @@ for site_id in site_ids:
                 ## 2. Calculate S with water vapour correction
 
                 # calculate lidar ratio for the water vapour corrected profiles
-                S_wv, S_wv2 = lcu.lidar_ratio(beta_arr_wv, bsc_data['range_km'])
+                S_wv = lcu.lidar_ratio(beta_arr_wv, bsc_data['range_km'])
 
                 # filter out bad profiles, unsuitable for calibrations
                 Step1_S_wv, profile_B_ratio_wv = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S_wv)  # aerosol ratio = 5%
@@ -406,9 +265,19 @@ for site_id in site_ids:
                 CL_medians_wv.append(dayCL_median_wv)
                 CL_stdevs_wv.append(dayCL_stdev_wv)
 
-        # save the year's data as a netCDF file in the ANNUAL folder
-        netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
-                                    site_id, site, year)
+            # else if backscatter data is not available this day
+            else:
+                C_modes_wv.append(np.nan)
+                C_medians_wv.append(np.nan)
+                C_modes.append(np.nan)
+                C_medians.append(np.nan)
+                profile_total.append(np.nan)
+
+        # if there is data to save
+        if len(C_modes) > 0:
+            # save the year's data as a netCDF file in the ANNUAL folder
+            lcu.netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
+                                        site_id, site, year)
 
 
 
