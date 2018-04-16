@@ -115,7 +115,7 @@ for site_id in site_ids:
         All_modelWV = []    #transmission correction by profile from model
 
         profiles_in_row = []
-        file_locs = []
+        num_files_present = 0 # count how many BSC files were actually present in the year
 
         # loop through each day individually, create calibration coefficient and store in list variables
 
@@ -143,6 +143,9 @@ for site_id in site_ids:
 
             # check if file exists
             if os.path.isfile(bsc_filepath) == True:
+
+                # add 1 to show that a file was present
+                num_files_present += 1
 
                 # read in L1 unscmoothed backscatter data (do not correct for SNR)
                 bsc_data, _ = lcu.netCDF_read_BSC(bsc_filepath, var_type='beta', SNRcorrect=False)
@@ -274,7 +277,7 @@ for site_id in site_ids:
                 profile_total.append(np.nan)
 
         # if there is data to save
-        if len(C_modes) > 0:
+        if num_files_present > 0:
             # save the year's data as a netCDF file in the ANNUAL folder
             lcu.netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
                                         site_id, site, year)
