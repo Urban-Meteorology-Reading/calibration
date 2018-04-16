@@ -188,6 +188,8 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
         data['dry_air_density'] = np.array(data['pressure']) / (Rstar * np.array(data['air_temperature']))
         data['wv_density'] = np.array(data['q']) * data['dry_air_density']
 
+        file.close()
+
         return data
 
     # Gas constant for dry air
@@ -946,7 +948,7 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     ncfilename = site_save_id + '_' + str(year) + '.nc'
 
     # Create netCDF file
-    ncfile = Dataset(ncsavedir + '/' + ncfilename, 'w')
+    ncfile = Dataset(ncsavedir + ncfilename, 'w')
 
     # Create dimensions
     ncfile.createDimension('time', len(date_range_netcdf))
