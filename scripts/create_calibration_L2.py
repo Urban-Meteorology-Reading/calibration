@@ -5,10 +5,15 @@ window transmission or an average. Read in all the years at once for a site.
 Created on 15/05/17 by EW
 """
 
+import sys
+# append dir containing lcu utility library
+# sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
+sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+import LUMO_calibration_Utils as lcu
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.dates import DateFormatter
-# from pm_RH_vs_mod_obs_backscatter import dateList_to_datetime
 
 import numpy as np
 import datetime as dt
@@ -18,21 +23,6 @@ import ellUtils as eu
 import ceilUtils as ceil
 
 # Read
-
-def read_cal():
-
-    """Read calibration data"""
-
-    sites = {'CL31-A_KSS45W':cal.A_KSS45W,'CL31-B_RGS':cal.B_RGS,'CL31-C_MR':cal.C_MR, 'CL31-D_NK':cal.D_NK}
-
-    calib = {}
-    for key, item in sites.iteritems():
-        # read in calibration
-
-        calib[key] = {'Dates': item.Dates, 'wv_cal': np.array(item.C_modes_wv),
-                      'samples': np.array(item.profile_total)}
-
-    return calib
 
 def read_periods(perioddatadir, site):
 
@@ -124,11 +114,11 @@ def remove_events(periods, window_trans_daily):
     period_event_days = np.array([i.date() for i in periods['Date']])
 
     for day in period_event_days:
-        idx = np.where(np.array(window_trans_daily['dates']) == day)
+        idx = np.where(np.array(window_trans_daily['time']) == day)
 
         # turn daily data into nan as it is unreliable
         for key in window_trans_daily.iterkeys():
-            if key != 'dates':
+            if key != 'time':
                 window_trans_daily[key][idx] = np.nan
 
     return window_trans_daily
@@ -156,10 +146,12 @@ def calc_daily_window_trans(window_trans, calib_dates_days, calib):
     window_trans_dates = np.array([i.date() for i in window_trans['time']])
 
     daysRange = eu.date_range(dayMin, dayMax, 1, 'days')
-    window_trans_daily = {'dates': daysRange, 'max_window': np.empty(len(daysRange)),
+    window_trans_daily = {'time': daysRange,
+                          'max_window': np.empty(len(daysRange)), 'avg_window': np.empty(len(daysRange)),
                           'c_wv': np.empty(len(daysRange)), 'samples': np.empty(len(daysRange))}
     window_trans_daily['c_wv'][:] = np.nan
     window_trans_daily['max_window'][:] = np.nan
+    window_trans_daily['avg_window'][:] = np.nan
     window_trans_daily['samples'][:] = np.nan
 
     for day, dayIdx in zip(daysRange, np.arange(len(daysRange))):
@@ -170,21 +162,22 @@ def calc_daily_window_trans(window_trans, calib_dates_days, calib):
         # store maximum window transmission for the day
         if winIdx[0].size != 0:
             window_trans_daily['max_window'][dayIdx] = np.nanmax(window_trans['transmission'][winIdx])
+            window_trans_daily['avg_window'][dayIdx] = np.nanmean(window_trans['transmission'][winIdx])
 
         # get c
         cIdx = np.where(calib_dates_days == day)
 
         # store c for the day
         if cIdx[0].size != 0:
-            window_trans_daily['c_wv'][dayIdx] = calib['wv_cal'][cIdx]
+            window_trans_daily['c_wv'][dayIdx] = calib['CAL_mode_wv'][cIdx]
 
 
         # get c
         sIdx = np.where(calib_dates_days == day)
 
-        # store c for the day
+        # store total number of profiles for the day
         if sIdx[0].size != 0:
-            window_trans_daily['samples'][dayIdx] = calib['samples'][sIdx]
+            window_trans_daily['samples'][dayIdx] = calib['profile_total'][sIdx]
 
 
     return window_trans_daily
@@ -202,12 +195,12 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
     :return:
     """
 
-    window_trans_daily['c_pro'] = np.empty(len(window_trans_daily['dates']))
+    window_trans_daily['c_pro'] = np.empty(len(window_trans_daily['time']))
     window_trans_daily['c_pro'][:] = np.nan
 
     # fill calib_pro ready for processed values
     # days = eu.date_range(dt.datetime(2015, 2, 5), dt.datetime(2016, 12, 31), 1, 'days')
-    # calib_pro[site] = {'dates': np.array([i.date() for i in days]),
+    # calib_pro[site] = {'time': np.array([i.date() for i in days]),
     #                    'c_pro': np.empty(len(days))}
     # calib_pro[site]['c_pro'][:] = np.nan
 
@@ -215,8 +208,8 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
     for reg, values in regimes[site].iteritems():
 
         # find matching dates to process over
-        whole_idx = np.where((np.array(window_trans_daily['dates']) > values[0]) &
-                             (np.array(window_trans_daily['dates']) < values[1]))
+        whole_idx = np.where((np.array(window_trans_daily['time']) > values[0]) &
+                             (np.array(window_trans_daily['time']) < values[1]))
 
         # KSS45W
         if values[2] == 'time':
@@ -224,7 +217,7 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
             # can do this with [x] as days are equally spaced
             x = whole_idx[0]
             y = window_trans_daily['c_wv'][whole_idx]
-            days = np.array(window_trans_daily['dates'])[whole_idx]
+            days = np.array(window_trans_daily['time'])[whole_idx]
 
             idx_i = np.where(~np.isnan(x) & ~np.isnan(y))
 
@@ -304,7 +297,8 @@ def plot_smooth(dates, calibration, ma_7, ma_10, ma_30):
 
 
 
-def plot_cal_wind_pulse_timeseries_new_cal(window_trans_daily, savedir, site, clear_days):
+def plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site, clear_days=[],
+                                        plot_trans=True, plot_clear=False):
 
     """ Plot time series of points, of raw calibration, window transmission and pulse energy"""
 
@@ -312,26 +306,36 @@ def plot_cal_wind_pulse_timeseries_new_cal(window_trans_daily, savedir, site, cl
     ax1 = fig.add_subplot(1, 1, 1)
     ax2 = ax1.twinx()
     marker = 4
-    ax1.plot_date(window_trans_daily['dates'], window_trans_daily['c_wv'], label='raw', color='g', markersize=marker)
-    ax1.plot_date(window_trans_daily['dates'], window_trans_daily['c_pro'], label='c_pro', color='r', markersize=marker)
-    ax2.plot_date(window_trans['time'], window_trans['transmission'], label='window_trans', markersize=marker)
+
+    if plot_trans == True:
+        ax2.plot_date(window_trans['time'], window_trans['transmission'], label='window_trans', markersize=marker)
+        ax2.set_ylim([0.0, 100.0])
+        ax2.set_ylabel('Percentage')
+    ax1.plot_date(window_trans_daily['time'], window_trans_daily['c_wv'], label='raw', color='g', markersize=marker)
+    if 'c_pro' in window_trans_daily.keys():
+        ax1.plot_date(window_trans_daily['time'], window_trans_daily['c_pro'], label='c_pro', color='r',
+                      markersize=marker)
     # ax2.plot_date(pulse['time'], pulse['pulse'], label='pulse', markersize=marker)
 
     # put vertical lines in for each of the clear days
-    for day in clear_days:
-        ax2.plot_date([day, day], [-100, 200], fmt='-', ls='--', color='black')
+    if plot_clear == True:
+        for day in clear_days:
+            ax2.plot_date([day, day], [-100, 200], fmt='-', ls='--', color='black')
 
     # Prettify
-    ax2.set_ylim([0.0, 100.0])
     ax = plt.gca()
     ax.xaxis.set_major_formatter(DateFormatter('%m/%y'))
     ax.set_xlim([window_trans['time'][0], window_trans['time'][-1]])
     ax.set_xlabel('Time [mm/YY]', labelpad=0)
     ax1.set_ylabel('water vapour C')
-    ax2.set_ylabel('Percentage')
     plt.suptitle(site)
     plt.legend()
-    plt.savefig(savedir + 'rawCalib_trans_proCalib' + site + '.png')
+    if plot_clear == True:
+        plt.savefig(savedir + 'rawCalib_trans_proCalib_cleardays_' + site + '.png')
+    elif plot_trans == True:
+        plt.savefig(savedir + 'rawCalib_trans_proCalib_trans_' + site + '.png')
+    else:
+        plt.savefig(savedir + 'rawCalib_trans_proCalib_' + site + '.png')
     plt.close(fig)
 
 def plot_cal_wind_pulse_timeseries(calib_dates, calib_raw, window_trans, pulse, savedir, site, clear_days):
@@ -385,8 +389,8 @@ def plot_period(periods, window_trans_daily, site, savedir):
 
         # get idx position for this period
         # for some reason the idx array is within another array... is this to do with having two arguments?
-        idx = np.where((np.array(window_trans_daily['dates']) > startDay) &
-                       (np.array(window_trans_daily['dates']) < endDay))
+        idx = np.where((np.array(window_trans_daily['time']) > startDay) &
+                       (np.array(window_trans_daily['time']) < endDay))
 
         # if window_trans_daily data exists for this date, extract and plot the data
         if idx[0].size != 0:
@@ -446,8 +450,8 @@ def scatter_window_c_all_type(window_trans_daily, periods, site, savedir):
 
             # get idx position for this period
             # for some reason the idx array is within another array... is this to do with having two arguments?
-            idx = np.where((np.array(window_trans_daily['dates']) > startDay) &
-                                     (np.array(window_trans_daily['dates']) < endDay))
+            idx = np.where((np.array(window_trans_daily['time']) > startDay) &
+                                     (np.array(window_trans_daily['time']) < endDay))
 
             # if window_trans_daily data exists for this date, extract and plot the data
             if idx[0].size != 0:
@@ -512,11 +516,11 @@ def scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
     # scatter plot for the calibration data. daily max window trans vs calibration factor.
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
-    p = ax.scatter(window_trans_daily['max_window'], window_trans_daily['c_wv'], c = window_trans_daily['samples'],
+    p = ax.scatter(window_trans_daily['avg_window'], window_trans_daily['c_wv'], c = window_trans_daily['samples'],
                    vmin= 0, vmax=2500, cmap=cm.jet)
 
     # add a linear fit to the plot
-    m, b = eu.linear_fit_plot(window_trans_daily['max_window'], window_trans_daily['c_wv'], ax, ls='-', color='black')
+    m, b = eu.linear_fit_plot(window_trans_daily['avg_window'], window_trans_daily['c_wv'], ax, ls='-', color='black')
 
     # string for equation
     eqstr = 'y = %.2fx + %.2f' % (m, b)
@@ -526,7 +530,7 @@ def scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
 
     # Prettify
     ylim = [np.nanmin(window_trans_daily['c_wv']), np.nanmax(window_trans_daily['c_wv'])]
-    xlim = [np.nanmin(window_trans_daily['max_window']), np.nanmax(window_trans_daily['max_window'])]
+    xlim = [np.nanmin(window_trans_daily['avg_window']), np.nanmax(window_trans_daily['avg_window'])]
 
     # some periods only have 100 % window transmission, leading to weird limits being set on the xlim.
     # hence this deals with that edge case
@@ -551,7 +555,7 @@ def scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
     plt.colorbar(p)
     plt.legend()
 
-    plt.savefig(savedir + '/' + site + '/rawCalib_vs_maxWindow_daily_' + period_range_str + '_' + site + '.png')
+    plt.savefig(savedir + '/' + site + '/rawCalib_vs_avgWindow_daily_' + period_range_str + '_' + site + '.png')
 
     return
 
@@ -628,13 +632,18 @@ if __name__ == '__main__':
     ceildatadir = datadir + 'L1/'
     perioddatadir = datadir + 'ceilometer_periods/'
     savedir = maindir + 'figures/'
+    L2calsavedir = datadir + 'L2/'
 
     # site_bsc = {'CL31-B_RGS': 28.1 - 19.4, 'CL31-C_MR': 32.0 - 27.5, 'CL31-A_KSS45W': 64.3, 'CL31-D_NK': 27.0 - 23.2}
     site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
-    # clear sky days to overplot onto thecalibration
-    daystrList = ['20150414', '20150415', '20150421', '20150611', '20160504', '20160823', '20160911', '20161125',
-                  '20161129', '20161130', '20161204']
+    # paper 2 clear sky days to overplot onto the calibration
+    daystrList = ['20161125','20161129','20161130','20161204','20170120','20170122','20170325','20170408','20170526',
+                  '20170828','20161102','20161205','20161227','20161229','20170105','20170117','20170118','20170119',
+                  '20170121','20170330','20170429','20170522','20170524','20170601','20170614','20170615','20170619',
+                  '20170620','20170626','20170713','20170717','20170813','20170827','20170902']
+
+    # new clear sky days
 
     clear_days = eu.dateList_to_datetime(daystrList)
 
@@ -646,14 +655,20 @@ if __name__ == '__main__':
     #                          '2': [dt.date(2016, 7, 28), dt.date(2016, 12, 31), 'block_avg']},
     #            'CL31-D_NK': {'1': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']}}
 
-    # regime styles - [start, end, regime type]
+    # revised regime styles for paper 2 - [start, end, regime type]
     regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
-                                 '2': [dt.date(2015, 9, 01), dt.date(2016, 4, 01), 'block_avg']},
-               'CL31-B_RGS': {'1': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']},
+                                 '2': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
+               'CL31-A_IMU': {'1': [dt.date(2016, 1, 1), dt.date(2016, 8, 15), 'window_transmission'],
+                              '2': [dt.date(2016, 8, 16), dt.date(2017, 5, 31), 'window_transmission']},
+               'CL31-B_RGS': {'1': [dt.date(2017, 5, 31), dt.date(2017, 12, 31), 'window_transmission'],
+                              '2': [dt.date(2016, 7, 17), dt.date(2017, 1, 1), 'time'],
+                              '3': [dt.date(2016, 7, 17), dt.date(2017, 11, 17), 'time'],
+                              '4': [dt.date(2017, 11, 18), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-C_MR': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 28), 'block_avg'],
-                             '2': [dt.date(2016, 7, 28), dt.date(2016, 12, 31), 'block_avg']},
+                             '2': [dt.date(2016, 7, 28), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
-                             '2': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']}}
+                             '2': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']},
+               'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2017, 12, 31), 'window_transmission']}}
 
     calib_pro = {}
 
@@ -672,33 +687,31 @@ if __name__ == '__main__':
 
         print '... Processing ' + site
 
-        # read in calibration data for site
-        filepaths = [ceildatadir + ceil_id +'_CAL_'+site+'_'+str(i)+'.nc' for i in years]
-        calib = eu.netCDF_read(filepaths)
-
-        # this site calibration data
-        # calib = calib_all[site]
+        # read in calibration data for site, for all years
+        calib_filepaths = [ceildatadir + ceil_id +'_CAL_'+site+'_'+str(i)+'.nc' for i in years]
+        calib = eu.netCDF_read(calib_filepaths)
 
         # ==============================================================================
         # Read data
         # ==============================================================================
 
         # read periods
-        periods = read_periods(perioddatadir, site)
+        periods = read_periods(perioddatadir, site_id)
 
         # read transmission
-        window_trans = read_window_trans(site, datadir)
+        # window_trans = read_window_trans(site, datadir)
+        ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years]
+        window_trans = eu.netCDF_read(ccw30_filepaths)
 
         # read pulse energy
-        pulse = read_pulse(site, datadir)
+        # pulse = read_pulse(site, datadir)
 
         # ==============================================================================
         # Process
         # ==============================================================================
 
-        # turn dates into datetimes
-        calib_dates = dateList_to_datetime_calib_format(calib['Dates'])
-        calib_dates_days = np.array([i.date() for i in calib_dates])
+        # turn datetimes into dates
+        calib_dates_days = np.array([i.date() for i in calib['time']])
 
         # linearly interpolat the nans
         # calibration = eu.linear_interpolation(data['wv_cal'])
@@ -713,16 +726,23 @@ if __name__ == '__main__':
         window_trans_daily = remove_events(periods, window_trans_daily)
 
         # process the calibration based on ceilometer 'regime' so there is data for all days.
-        window_trans_daily = process_calibration_for_all_days(window_trans_daily, regimes, site)
+        window_trans_daily = process_calibration_for_all_days(window_trans_daily, regimes, site_id)
 
-        # save processed calibration data
-        with open(perioddatadir + '/' + site + '_window_trans_daily_cpro.pickle', 'wb') as handle:
-            pickle.dump(window_trans_daily, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # save L2 calibration data (netCDF)
+        # save each year into a different file
+        for year in [2016, 2017]:  # which years to save
+            lcu.netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir)
 
-        # use this to open:
-        # with open(perioddatadir + '/' + site + '_window_trans_daily_cpro.pickle', 'rb') as handle:
-        #   window_trans_daily = pickle.load(handle)
+        # plot scatter of c_pro and window transmission
+        # plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=True)
+        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=False)
+        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=False)
+        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=True)
 
+        # check out a specif period
+        startDay = dt.datetime(2017,01,01)
+        endDay = dt.datetime(2017,12,31)
+        scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
 
         # # convert num samples to number of samples by hour (2 hours)
         # window_trans_daily['sample_hr'] = window_trans_daily['samples']/240.0
@@ -730,30 +750,30 @@ if __name__ == '__main__':
         # # finding out what happened on those dates at the end of KSS45W
         # idx = np.where(window_trans_daily['c_wv'] > 3.5)
         # np.array(window_trans_daily['c_wv'])[np.where(window_trans_daily['c_wv'] > 3.5)]
-        # np.where(np.array(window_trans_daily['dates']) > dt.date(2016, 3, 1))
+        # np.where(np.array(window_trans_daily['time']) > dt.date(2016, 3, 1))
         #
         #
-        # mid_idx = np.where((np.array(window_trans_daily['dates']) > dt.date(2015, 2, 24)) &
-        #          (np.array(window_trans_daily['dates']) < dt.date(2015, 8, 24)))
+        # mid_idx = np.where((np.array(window_trans_daily['time']) > dt.date(2015, 2, 24)) &
+        #          (np.array(window_trans_daily['time']) < dt.date(2015, 8, 24)))
         # np.sum(~np.isnan(window_trans_daily['c_wv'][mid_idx]))
         #
-        # # plt.scatter(np.array(window_trans_daily['dates'])[mid_idx], window_trans_daily['c_wv'][mid_idx])
+        # # plt.scatter(np.array(window_trans_daily['time'])[mid_idx], window_trans_daily['c_wv'][mid_idx])
         #
-        # early_idx = np.where((np.array(window_trans_daily['dates']) < dt.date(2015, 4, 16)))
+        # early_idx = np.where((np.array(window_trans_daily['time']) < dt.date(2015, 4, 16)))
         # clip_early = {}
         # for key, value in window_trans_daily.iteritems():
         #     clip_early[key] = np.array(value)[early_idx]
         # # scatter_c_sample_period(clip, site, savedir, dt.date(2015, 2, 24), dt.date(2015, 8, 24))
         # scatter_window_c_period(clip_early, site, savedir, dt.date(2015, 2, 5), dt.date(2015, 4, 16))
         #
-        # late_idx = np.where((np.array(window_trans_daily['dates']) > dt.date(2015, 4, 16)))
+        # late_idx = np.where((np.array(window_trans_daily['time']) > dt.date(2015, 4, 16)))
         # clip_late = {}
         # for key, value in window_trans_daily.iteritems():
         #     clip_late[key] = np.array(value)[late_idx]
         # # scatter_c_sample_period(clip, site, savedir, dt.date(2015, 2, 24), dt.date(2015, 8, 24))
         # scatter_window_c_period(clip_late, site, savedir, dt.date(2015, 4, 16), dt.date(2016, 12, 31))
         #
-        # # d = [i.strftime('%Y%j') for i in np.array(window_trans_daily['dates'])[v]]
+        # # d = [i.strftime('%Y%j') for i in np.array(window_trans_daily['time'])[v]]
         # scatter_c_sample_period(window_trans_daily_period, site, savedir, startDay, endDay)
 
 
@@ -769,13 +789,7 @@ if __name__ == '__main__':
         # idx = np.where(np.array(periods['Type']) != 'Transmission')[0]
 
 
-
-
-
-
-
-
-
+        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days)
 
         # ----------------
         # moving average the data
@@ -790,7 +804,7 @@ if __name__ == '__main__':
         # time-series point plot of calibration, window trans and pulse energy.
         # plot_cal_wind_pulse_timeseries(calib_dates, calib_raw, window_trans, pulse, savedir, site, clear_days)
 
-        plot_cal_wind_pulse_timeseries_new_cal(window_trans_daily, savedir, site, clear_days)
+        plot_cal_wind_pulse_timeseries(window_trans_daily, savedir, site, clear_days)
 
         # scatter all the data for a site. Max daily window trans verses calibration coeff
         #scatter_window_c_all(window_trans_daily, site, savedir)
