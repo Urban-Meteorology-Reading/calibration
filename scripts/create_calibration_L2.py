@@ -659,8 +659,9 @@ if __name__ == '__main__':
     regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
                                  '2': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
                'CL31-A_IMU': {'1': [dt.date(2016, 1, 1), dt.date(2016, 8, 15), 'window_transmission'],
-                              '2': [dt.date(2016, 8, 16), dt.date(2017, 5, 31), 'window_transmission']},
-               'CL31-B_RGS': {'1': [dt.date(2017, 5, 31), dt.date(2017, 12, 31), 'window_transmission'],
+                              '2': [dt.date(2016, 8, 16), dt.date(2017, 5, 31), 'window_transmission'],
+                              '3': [dt.date(2017, 5, 31), dt.date(2017, 12, 31), 'window_transmission']},
+               'CL31-B_RGS': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 16), 'window_transmission'],
                               '2': [dt.date(2016, 7, 17), dt.date(2017, 1, 1), 'time'],
                               '3': [dt.date(2016, 7, 17), dt.date(2017, 11, 17), 'time'],
                               '4': [dt.date(2017, 11, 18), dt.date(2017, 12, 31), 'block_avg']},
@@ -668,11 +669,12 @@ if __name__ == '__main__':
                              '2': [dt.date(2016, 7, 28), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
                              '2': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']},
+               'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2017, 12, 31), 'window_transmission']}}
 
     calib_pro = {}
 
-    years = [2016, 2017]
+    years = [2017]
 
     # read L1 calibration data
     # calib_all = read_cal()
@@ -730,7 +732,7 @@ if __name__ == '__main__':
 
         # save L2 calibration data (netCDF)
         # save each year into a different file
-        for year in [2016, 2017]:  # which years to save
+        for year in years:  # which years to save
             lcu.netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir)
 
         # plot scatter of c_pro and window transmission
