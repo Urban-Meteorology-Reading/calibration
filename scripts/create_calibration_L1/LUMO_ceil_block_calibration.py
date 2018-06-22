@@ -15,6 +15,17 @@ Created by Elliott Warren Thurs 08/03/2018
 Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 """
 
+# ----------------
+## Set up on met-cluster
+# import sys
+# import os
+# import numpy as np
+# import datetime as dt
+# # append dir containing lcu utility library
+# sys.path.append(os.environ['HOME']+'/Temp_Elliott/scripts/calibration')
+# import LUMO_calibration_Utils as lcu
+# ----------------
+
 import sys
 # append dir containing lcu utility library
 sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
