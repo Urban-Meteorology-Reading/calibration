@@ -16,7 +16,7 @@ from scipy import stats
 
 # Reading ------------------------------------------------------------
 
-def mo_create_filename(main_day):
+def mo_create_filename_orig(main_day):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
@@ -50,6 +50,69 @@ def mo_create_filename(main_day):
         filepath = datadir_mo + filename
 
     return filepath, mod
+
+def mo_create_filename(main_day, **kwargs):
+
+    """
+    Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
+    :param day: [datetime]
+    :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
+    :return: yest_filepath: full filepath to yesterday's data
+    :return: day_filepath: full filepath to day's data
+    return: mod: model name
+
+    EW 08/03/18
+    """
+
+    from os.path import exists
+
+    # main data dir
+    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    # datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
+
+    # model and start run times to try (in order of preference, as used in the filename)
+    models = ['UKV', 'LON']
+    # Zs = ['06', '21', '03']
+    mod_Zs = [['UKV', '06'], ['LON', '06'],
+              ['UKV', '21'], ['LON', '21'],
+              ['UKV', '03'], ['LON', '03']]
+
+    # if model and Z have been inputted, create a filename to match
+    # Note: This should be used to find file for 'day' to match the Z time of 'yest'. The model files only have 25
+    #   hours, therefore the Z times of both ideally need to match (or the Z time of 'day' be lower than Z of 'yest'
+    #   e.g. yest Z = 06, therefore day Z needs to be 6 or lower to ensure an overlap.
+    if 'set_Z' in kwargs:
+        Z = kwargs['set_Z']
+
+        # look for filepaths with that Z.
+        for mod in models:
+            # create filename and check path existance
+            filename = 'MO' + mod + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filepath = datadir_mo + filename
+            # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
+            #   being used so it can safely fail the existance check outside of this function
+            if exists(filepath) == True:
+                break
+
+    # if model and Z have not been give, cycle through the model and Z combinations to look to an existing file.
+    else:
+        # loop through the mod and Z combination to try and find a file that exists.
+        # if no files are present, loop is designed to let the last combination be the filepath, so it can fail the
+        #     file existance check, outisde of this function
+        for mod_Z in mod_Zs:
+
+            # extract out the model and Z
+            mod = mod_Z[0]
+            Z = mod_Z[1]
+
+            # check path existance
+            filename = 'MO' + mod + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filepath = datadir_mo + filename
+
+            if exists(filepath) == True:
+                break
+
+    return filepath, mod, Z
 
 def time_to_datetime(tstr, timeRaw):
 
@@ -146,15 +209,12 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
 
         # if UKV have it remove the top height... otherwise, if LON then keep all heights
         height_raw = file.variables['height1'][:, 1, 1]
-        # double check number of heights is 71 and the issue with the UKV top level is still probably there. If
-        # len(heights) != 71, then the issue might have gone, therefore break the read in so it can be checked by
-        # the user.
-        if (mod == 'UKV') & (len(height_raw) != 71):
-            raise ValueError('UKV data read in but heights != 71, therefore issue with top level might have changed.../n'
-                             'check the forecast data top level!')
 
-        # if
-        if mod == 'UKV':
+        # double check number of heights. UKV can have 71 with the top level being 0.0 and erronous, so if model is UKV and there are 71 levels,
+        # remove the top one.
+
+        # if there are 71 levels, remove the top one
+        if (mod == 'UKV') & (len(height_raw) == 71):
             # up to but not including the top level (usually level 70)
             height_range_idx = np.arange(len(height_raw)-1)
         else:
@@ -980,6 +1040,65 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     # Extra attributes
     ncfile.history = 'Created ' + dt.datetime.now().strftime('%Y-%m-%d %H:%M') + ' GMT'
+    ncfile.site_id = site_id
+
+    # close file
+    ncfile.close()
+
+    # print status
+    print ncfilename + ' save successfully!'
+    print ''
+
+    return
+
+def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
+
+    """
+    Save the year's L2 calibration data in a netCDF file.
+
+    """
+
+    # Create save file id (put CAL in the id)
+    a = site_id.split('_')
+    site_save_id = a[0] + '_CAL_' + a[1]
+
+    # ncsavedir = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
+    ncsavedir = L2calsavedir
+
+    # get time index for this year's data
+    idx = np.array([True if i.year == year else False for i in window_trans_daily['time']])
+    idx = np.where(idx == True)[0]
+
+    # create list of days to save as time in the netCDF -> x days since...
+    time_deltas = [i - dt.date(year, 1, 01) for i in window_trans_daily['time'][idx]]
+    date_range_netcdf = np.array([i.days for i in time_deltas])
+
+    # Create save filename
+    ncfilename = site_save_id + '_' + str(year) + '.nc'
+
+    # Create netCDF file
+    ncfile = Dataset(ncsavedir + ncfilename, 'w')
+
+    # Create dimensions
+    ncfile.createDimension('time', len(date_range_netcdf))
+
+    # Create co-ordinate variables
+    nc_time = ncfile.createVariable('time', np.float64, ('time',))
+    nc_time[:] = date_range_netcdf  # days since 1st Jan of this year
+    nc_time.units = 'days since ' + dt.datetime(year, 1, 01).strftime('%Y-%m-%d %H:%M:%S')
+
+    # Create main variables
+    nc_cal_c_pro = ncfile.createVariable('c_pro', np.float64, ('time',))
+    nc_cal_c_pro[:] = window_trans_daily['c_pro'][idx]
+    nc_cal_c_pro.long_name = 'calibration coefficient with water vapour correction'
+
+    nc_profile_total = ncfile.createVariable('profile_total', np.float64, ('time',))
+    nc_profile_total[:] = window_trans_daily['samples'][idx]
+
+    # Extra attributes
+    ncfile.history = 'Created ' + dt.datetime.now().strftime('%Y-%m-%d %H:%M') + ' GMT'
+    ncfile.data_source = 'Created from modal calibration coefficients with water vapour correction (L1 data)'
+    ncfile.method = 'L2 values calculated from all L1 data at once, then split into yearly files'
     ncfile.site_id = site_id
 
     # close file
