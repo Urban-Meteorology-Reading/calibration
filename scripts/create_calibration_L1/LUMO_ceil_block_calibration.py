@@ -193,94 +193,106 @@ for site_id in site_ids:
                 day_filepath, day_mod = lcu.mo_create_filename(day)
 
                 # if both day's data exist, apply water vapour correction, else set backscatter to nan
-                if (os.path.exists(yest_filepath))  & (os.path.exists(day_filepath)):
+                if (os.path.exists(yest_filepath)) & (os.path.exists(day_filepath)):
                     # Calculate and apply transmissivity to multiple scattering, corrected backscatter data
                     transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
                     beta_arr_wv = beta_arr * (1.0 / np.transpose(transmission_wv))
+
+
+                    # ----------------------------------------------
+                    # Calculate calibration
+                    # ----------------------------------------------
+
+                    ## 1. Calculate lidar ratio (S) without water vapour correction
+
+                    # calculate S, including transmission correction (on non water vapour corrected profiles)
+                    S = lcu.lidar_ratio(beta_arr, bsc_data['range_km'])
+
+                    # Remove profiles unsuitable for calibration
+                    ## Apply S Filters
+                    Step1_S, profile_B_ratio = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
+                    Step2_S = lcu.step2_Sfilt(Step1_S, 10, cont_profs)  # range in S = 10%
+                    # remove neg values caused by neg noise
+                    Step2_S[Step2_S < 0] = np.nan
+
+
+                    ## 2. Calculate S with water vapour correction
+
+                    # calculate lidar ratio for the water vapour corrected profiles
+                    S_wv = lcu.lidar_ratio(beta_arr_wv, bsc_data['range_km'])
+
+                    # filter out bad profiles, unsuitable for calibrations
+                    Step1_S_wv, profile_B_ratio_wv = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S_wv)  # aerosol ratio = 5%
+                    Step2_S_wv = lcu.step2_Sfilt(Step1_S_wv, 10, cont_profs)
+                    # remove neg values caused by neg noise
+                    Step2_S_wv[Step2_S_wv < 0] = np.nan
+
+                    # -----------------
+                    # Statistics
+                    # -----------------
+
+                    # Calculate mode and mean
+                    Cal_hist, no_of_profs = lcu.get_counts(Step2_S)  # Histogram of filtered S
+                    no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev, dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = lcu.S_mode_mean(
+                    Step2_S, Cal_hist)
+
+                    Cal_hist_wv, no_of_profs_wv = lcu.get_counts(Step2_S_wv)  # Histogram of filtered S
+                    no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = lcu.S_mode_mean(
+                    Step2_S_wv, Cal_hist_wv)
+
+
+                    ## Append statistics for each
+
+                    All_S = np.concatenate((All_S, Step2_S))
+                    ###All_S2 = np.concatenate((All_S2, Step2_S2))
+                    # ~~~~
+                    S_forbox = np.array(Step2_S)
+                    S_forbox[np.isnan(S_forbox)] = 0
+                    S_forbox = S_forbox[np.nonzero(S_forbox)]
+                    if np.max(Cal_hist) > 10:
+                        S_box.append(S_forbox)
+                    else:
+                        S_box.append([0])
+
+                    profile_total.append(no_of_profs)
+                    peak_total.append(no_in_peak)
+                    modes.append(day_mode)
+                    means.append(day_mean)
+                    medians.append(day_median)
+                    sems.append(day_sem)
+                    stdevs.append(day_stdev)
+                    C_modes.append(dayC_mode)
+                    C_medians.append(dayC_median)
+                    C_stdevs.append(dayC_stdev)
+                    CL_medians.append(dayCL_median)
+                    CL_stdevs.append(dayCL_stdev)
+
+                    modes_wv.append(day_mode_wv)
+                    means_wv.append(day_mean_wv)
+                    medians_wv.append(day_median_wv)
+                    sems_wv.append(day_sem_wv)
+                    stdevs_wv.append(day_stdev_wv)
+                    C_modes_wv.append(dayC_mode_wv)
+                    C_medians_wv.append(dayC_median_wv)
+                    C_stdevs_wv.append(dayC_stdev_wv)
+                    CL_medians_wv.append(dayCL_median_wv)
+                    CL_stdevs_wv.append(dayCL_stdev_wv)
+
                 else:
-                    beta_arr_wv = beta_arr * np.nan
+                    if os.path.exists(yest_filepath) != True:
+                        print 'yestfile: ' + yest_filepath + ' is missing!'
+                    elif os.path.exists(day_filepath) != True:
+                        print 'dayfile: ' + day_filepath + ' is missing!'
 
-                # ----------------------------------------------
-                # Calculate calibration
-                # ----------------------------------------------
-
-                ## 1. Calculate lidar ratio (S) without water vapour correction
-
-                # calculate S, including transmission correction (on non water vapour corrected profiles)
-                S = lcu.lidar_ratio(beta_arr, bsc_data['range_km'])
-
-                # Remove profiles unsuitable for calibration
-                ## Apply S Filters
-                Step1_S, profile_B_ratio = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
-                Step2_S = lcu.step2_Sfilt(Step1_S, 10, cont_profs)  # range in S = 10%
-                # remove neg values caused by neg noise
-                Step2_S[Step2_S < 0] = np.nan
-
-
-                ## 2. Calculate S with water vapour correction
-
-                # calculate lidar ratio for the water vapour corrected profiles
-                S_wv = lcu.lidar_ratio(beta_arr_wv, bsc_data['range_km'])
-
-                # filter out bad profiles, unsuitable for calibrations
-                Step1_S_wv, profile_B_ratio_wv = lcu.step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S_wv)  # aerosol ratio = 5%
-                Step2_S_wv = lcu.step2_Sfilt(Step1_S_wv, 10, cont_profs)
-                # remove neg values caused by neg noise
-                Step2_S_wv[Step2_S_wv < 0] = np.nan
-
-                # -----------------
-                # Statistics
-                # -----------------
-
-                # Calculate mode and mean
-                Cal_hist, no_of_profs = lcu.get_counts(Step2_S)  # Histogram of filtered S
-                no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev, dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = lcu.S_mode_mean(
-                Step2_S, Cal_hist)
-
-                Cal_hist_wv, no_of_profs_wv = lcu.get_counts(Step2_S_wv)  # Histogram of filtered S
-                no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = lcu.S_mode_mean(
-                Step2_S_wv, Cal_hist_wv)
-
-
-                ## Append statistics for each
-
-                All_S = np.concatenate((All_S, Step2_S))
-                ###All_S2 = np.concatenate((All_S2, Step2_S2))
-                # ~~~~
-                S_forbox = np.array(Step2_S)
-                S_forbox[np.isnan(S_forbox)] = 0
-                S_forbox = S_forbox[np.nonzero(S_forbox)]
-                if np.max(Cal_hist) > 10:
-                    S_box.append(S_forbox)
-                else:
-                    S_box.append([0])
-
-                profile_total.append(no_of_profs)
-                peak_total.append(no_in_peak)
-                modes.append(day_mode)
-                means.append(day_mean)
-                medians.append(day_median)
-                sems.append(day_sem)
-                stdevs.append(day_stdev)
-                C_modes.append(dayC_mode)
-                C_medians.append(dayC_median)
-                C_stdevs.append(dayC_stdev)
-                CL_medians.append(dayCL_median)
-                CL_stdevs.append(dayCL_stdev)
-
-                modes_wv.append(day_mode_wv)
-                means_wv.append(day_mean_wv)
-                medians_wv.append(day_median_wv)
-                sems_wv.append(day_sem_wv)
-                stdevs_wv.append(day_stdev_wv)
-                C_modes_wv.append(dayC_mode_wv)
-                C_medians_wv.append(dayC_median_wv)
-                C_stdevs_wv.append(dayC_stdev_wv)
-                CL_medians_wv.append(dayCL_median_wv)
-                CL_stdevs_wv.append(dayCL_stdev_wv)
+                    C_modes_wv.append(np.nan)
+                    C_medians_wv.append(np.nan)
+                    C_modes.append(np.nan)
+                    C_medians.append(np.nan)
+                    profile_total.append(np.nan)
 
             # else if backscatter data is not available this day
             else:
+                print 'BSC datafile was missing'
                 C_modes_wv.append(np.nan)
                 C_medians_wv.append(np.nan)
                 C_modes.append(np.nan)
