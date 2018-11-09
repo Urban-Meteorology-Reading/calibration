@@ -26,13 +26,12 @@ Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 # import LUMO_calibration_Utils as lcu
 # ----------------
 
+# ----------------
 import sys
 # append dir containing lcu utility library
-sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
-# sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
-
+#sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
+sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
 import LUMO_calibration_Utils as lcu
-
 import os
 import numpy as np
 import datetime as dt
@@ -42,11 +41,12 @@ import datetime as dt
 # ----------------------------
 
 # ceilometers to loop through (full ceilometer ID)
-# site_ids = ['CL31-A_KSS45W']
-site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
+site_ids = ['CL31-C_MR']
+#site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
 # years to loop through [list]
-years = [2016, 2017, 2018]
+# years = [2016, 2017, 2018]
+years = [2018]
 
 # settings to tune calibration
 ratio_filt = 0.05
@@ -66,10 +66,10 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
-        end_date = dt.datetime(year, 12, 31)
-        # start_date = dt.datetime(year, 1, 02)  # comparing my modes to EH modes
-        # end_date = dt.datetime(year, 1, 12)
+        # start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
+        # end_date = dt.datetime(year, 12, 31)
+        start_date = dt.datetime(year, 2, 05)  # comparing my modes to EH modes
+        end_date = dt.datetime(year, 2, 05)
         date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
@@ -143,9 +143,9 @@ for site_id in site_ids:
             # ----------------------------
 
             # find directory name for bsc data
-            datadir_bsc = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
-            #datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/'+str(year)+\
-            #              '/London/L1/'+day.strftime('%m')+'/'
+            #datadir_bsc = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
+            datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/'+str(year)+\
+                          '/London/L1/'+day.strftime('%m')+'/'
 
             # Note: L0 BSC heights are corrected for height above ground
             #       L1 BSC heights are NOT corrected and are therefore just the range...
@@ -189,13 +189,21 @@ for site_id in site_ids:
                 yest = day - dt.timedelta(days=1)
 
                 # Get full file paths for the day and yesterday's (yest) MO data and which model the forecast came from
-                yest_filepath, yest_mod = lcu.mo_create_filename(yest)
-                day_filepath, day_mod = lcu.mo_create_filename(day)
+                if yest < dt.datetime(2018, 1, 1):
+                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_old_style(yest)
+                else:
+                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_new_style(yest)
+
+                if day < dt.datetime(2018, 1, 1):
+                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_old_style(day, set_Z=yest_Z)
+                else:
+                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_new_style(day, set_Z=yest_Z)
 
                 # if both day's data exist, apply water vapour correction, else set backscatter to nan
-                if (os.path.exists(yest_filepath)) & (os.path.exists(day_filepath)):
+                if yest_file_exist & day_file_exist:
                     # Calculate and apply transmissivity to multiple scattering, corrected backscatter data
-                    transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
+                    transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod,
+                                       day_mod, day, yest, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
                     beta_arr_wv = beta_arr * (1.0 / np.transpose(transmission_wv))
 
 
@@ -279,10 +287,10 @@ for site_id in site_ids:
                     CL_stdevs_wv.append(dayCL_stdev_wv)
 
                 else:
-                    if os.path.exists(yest_filepath) != True:
-                        print 'yestfile: ' + yest_filepath + ' is missing!'
-                    elif os.path.exists(day_filepath) != True:
-                        print 'dayfile: ' + day_filepath + ' is missing!'
+                    if all([os.path.exists(i) for i in yest_filepaths]) != True:
+                        print 'yestfile: ' + str(yest_filepaths) + ' are missing!'
+                    elif all([os.path.exists(i) for i in day_filepaths]) != True:
+                        print 'dayfile: ' + str(day_filepaths) + ' is missing!'
 
                     C_modes_wv.append(np.nan)
                     C_medians_wv.append(np.nan)
