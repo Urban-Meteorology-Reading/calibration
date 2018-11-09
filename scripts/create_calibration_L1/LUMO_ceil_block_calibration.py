@@ -41,12 +41,13 @@ import datetime as dt
 # ----------------------------
 
 # ceilometers to loop through (full ceilometer ID)
-site_ids = ['CL31-C_MR']
+#site_ids = ['CL31-C_MR'] # test with 'new' style
+site_ids = ['CL31-A_KSS45W']
 #site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
 # years to loop through [list]
 # years = [2016, 2017, 2018]
-years = [2018]
+years = [2015]
 
 # settings to tune calibration
 ratio_filt = 0.05
@@ -68,9 +69,9 @@ for site_id in site_ids:
         # calibration values created at daily resolution
         # start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
         # end_date = dt.datetime(year, 12, 31)
-        start_date = dt.datetime(year, 2, 05)  # comparing my modes to EH modes
-        end_date = dt.datetime(year, 2, 05)
-        date_range = lcu.date_range(start_date, end_date, 1, 'day')
+        date_range = lcu.date_range(dt.datetime(2015, 2, 4), dt.datetime(2015, 2, 4), 1, 'day') # old style test day
+        #date_range = lcu.date_range(dt.datetime(2018, 2, 05), dt.datetime(2018, 2, 05), 1, 'day') # new style test day
+        # date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
         time_deltas = [i - dt.datetime(year,1,01) for i in date_range]
