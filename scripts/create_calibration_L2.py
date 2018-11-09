@@ -635,7 +635,8 @@ if __name__ == '__main__':
     L2calsavedir = datadir + 'L2/'
 
     # site_bsc = {'CL31-B_RGS': 28.1 - 19.4, 'CL31-C_MR': 32.0 - 27.5, 'CL31-A_KSS45W': 64.3, 'CL31-D_NK': 27.0 - 23.2}
-    site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
+    # site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
+    site_ids = ['CL31-D_NK']
 
     # paper 2 clear sky days to overplot onto the calibration
     daystrList = ['20161125','20161129','20161130','20161204','20170120','20170122','20170325','20170408','20170526',
@@ -668,13 +669,14 @@ if __name__ == '__main__':
                'CL31-C_MR': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 28), 'block_avg'],
                              '2': [dt.date(2016, 7, 28), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
-                             '2': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']},
+                             '2': [dt.date(2014, 1, 1), dt.date(2015, 5, 5), 'window_transmission'],
+                             '3': [dt.date(2015, 5, 5), dt.date(2016, 12, 31), 'window_transmission']},
                'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2017, 12, 31), 'block_avg']},
                'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2017, 12, 31), 'window_transmission']}}
 
     calib_pro = {}
 
-    years = [2017]
+    years = [2014, 2015, 2016]
 
     # read L1 calibration data
     # calib_all = read_cal()
@@ -777,8 +779,6 @@ if __name__ == '__main__':
         #
         # # d = [i.strftime('%Y%j') for i in np.array(window_trans_daily['time'])[v]]
         # scatter_c_sample_period(window_trans_daily_period, site, savedir, startDay, endDay)
-
-
 
 
         # very quick plot histogram of sample size
