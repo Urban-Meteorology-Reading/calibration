@@ -6,7 +6,7 @@ Functions copied/tweaked from Emma Hopkin's set of Utility functions.
 LUMO_calibration_Utils created by Elliott Thurs 08/03/2018
 """
 
-from netCDF4 import Dataset
+from netCDF4 import Dataset, MFDataset
 import numpy as np
 import datetime as dt
 import operator
@@ -16,58 +16,27 @@ from scipy import stats
 
 # Reading ------------------------------------------------------------
 
-def mo_create_filename_orig(main_day):
+def mo_create_filename_old_style(main_day, **kwargs):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
-    :param day: [datetime]
+    :param main_day: [datetime]
     :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
-    :return: yest_filepath: full filepath to yesterday's data
-    :return: day_filepath: full filepath to day's data
+    :return: filepaths: full filepath to main days's data
     return: mod: model name
 
     EW 08/03/18
     """
 
     from os.path import exists
+    from os import environ
+
+    # set path exists flag as False - changes if a file is found
+    paths_exist = False
 
     # main data dir
-    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
-    # datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
-
-    # get UKV filename
-    mod = 'UKV'
-    filename = 'MOUKV_FC'+main_day.strftime('%Y%m%d')+'06Z_WXT_KSSW.nc'
-    filepath = datadir_mo + filename
-
-    # if UKV doesn't exit, try LON file
-    if exists(filepath) == False:
-
-        # get London model filename
-        # London file existance will be checked outsite this function
-        mod = 'LON'
-        filename = 'MOLON_FC' + main_day.strftime('%Y%m%d') + '06Z_WXT_KSSW.nc'
-        filepath = datadir_mo + filename
-
-    return filepath, mod
-
-def mo_create_filename(main_day, **kwargs):
-
-    """
-    Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
-    :param day: [datetime]
-    :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
-    :return: yest_filepath: full filepath to yesterday's data
-    :return: day_filepath: full filepath to day's data
-    return: mod: model name
-
-    EW 08/03/18
-    """
-
-    from os.path import exists
-
-    # main data dir
-    datadir_mo = '/data/its-tier2/micromet/data/'+main_day.strftime('%Y')+'/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+                 '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
     # datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
 
     # model and start run times to try (in order of preference, as used in the filename)
@@ -85,13 +54,15 @@ def mo_create_filename(main_day, **kwargs):
         Z = kwargs['set_Z']
 
         # look for filepaths with that Z.
-        for mod in models:
+        for model_i in models:
+            # print 'mod is '+model_i
             # create filename and check path existance
-            filename = 'MO' + mod + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
-            filepath = datadir_mo + filename
+            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filepaths = [datadir_mo + filename]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
             #   being used so it can safely fail the existance check outside of this function
-            if exists(filepath) == True:
+            if exists(filepaths[0]) == True:
+                paths_exist = True
                 break
 
     # if model and Z have not been give, cycle through the model and Z combinations to look to an existing file.
@@ -102,17 +73,96 @@ def mo_create_filename(main_day, **kwargs):
         for mod_Z in mod_Zs:
 
             # extract out the model and Z
-            mod = mod_Z[0]
+            model_i = mod_Z[0]
             Z = mod_Z[1]
 
             # check path existance
-            filename = 'MO' + mod + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
-            filepath = datadir_mo + filename
+            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filepaths = [datadir_mo + filename]
 
-            if exists(filepath) == True:
+            if exists(filepaths[0]) == True:
+                paths_exist = True
                 break
 
-    return filepath, mod, Z
+    return filepaths, model_i, Z, paths_exist
+
+def mo_create_filename_new_style(main_day, **kwargs):
+
+    """
+    Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
+    :param main_day: [datetime]
+    :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
+    :return: yest_filepath: full filepath to yesterday's data
+    :return: day_filepath: full filepath to day's data
+    return: mod: model name
+
+    EW 08/03/18
+    """
+
+    from os.path import exists
+    from os import environ
+
+    # set paths exist flag as False - changes if a suitable file path is found
+    paths_exist = False
+
+    stash_codes = {'air_temperature': 'm01s16i004',
+                   'air_pressure': 'm01s00i408',
+                   'specific_humidity': 'm01s00i010'}
+
+    # main data dir
+    #datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+    #             '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
+
+    # model and start run times to try (in order of preference, as used in the filename)
+    models = ['UKV', 'LON']
+    # Zs = ['06', '21', '03']
+    mod_Zs = [['UKV', '06'], ['LON', '06'],
+              ['UKV', '21'], ['LON', '21'],
+              ['UKV', '03'], ['LON', '03']]
+
+    # if model and Z have been inputted, create a filename to match
+    # Note: This should be used to find file for 'day' to match the Z time of 'yest'. The model files only have 25
+    #   hours, therefore the Z times of both ideally need to match (or the Z time of 'day' be lower than Z of 'yest'
+    #   e.g. yest Z = 06, therefore day Z needs to be 6 or lower to ensure an overlap.
+    if 'set_Z' in kwargs:
+        Z = kwargs['set_Z']
+
+        # look for filepaths with that Z.
+        for model_i in models:
+
+            # create filename and check path existance
+            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
+                         for code in stash_codes.itervalues()]  # old style
+            filepaths = [datadir_mo + i for i in filenames]
+            # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
+            #   being used so it can safely fail the existance check outside of this function
+            if all([exists(i) for i in filepaths]) == True:
+                paths_exist = True
+                break
+
+    # if model and Z have not been give, cycle through the model and Z combinations to look to an existing file.
+    else:
+        # loop through the mod and Z combination to try and find a file that exists.
+        # if no files are present, loop is designed to let the last combination be the filepath, so it can fail the
+        #     file existance check, outisde of this function
+        for mod_Z in mod_Zs:
+
+            # extract out the model and Z
+            model_i = mod_Z[0]
+            Z = mod_Z[1]
+
+            # create filename and check path existance
+            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
+                         for code in stash_codes.itervalues()]  # old style
+            filepaths = [datadir_mo + i for i in filenames]
+            # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
+            #   being used so it can safely fail the existance check outside of this function
+            if all([exists(i) for i in filepaths]) == True:
+                paths_exist = True
+                break
+
+    return filepaths, model_i, Z, paths_exist
 
 def time_to_datetime(tstr, timeRaw):
 
@@ -158,15 +208,16 @@ def time_to_datetime(tstr, timeRaw):
         return
 
 #  yest_filepath, day_filepath, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter']
-def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod, day, range_data, time_data, beta_data):
+def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mod, day, yest, range_data, time_data, beta_data):
 
     """
     Calculate the transmission given the presence of water vapour
-    :param yest_filepath:
-    :param day_filepath:
+    :param yest_filepaths:
+    :param day_filepaths:
     :param yest_mod: model yesterday's forecast came from
     :param day:mod: model today's forecast came from
     :param day: the main data the calbration is for [datetime object]
+    :param yest: yesterday's date
     :param range_data: range (not height) [m]
     :param time_data:
     :param beta_data:
@@ -181,7 +232,7 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     from scipy.interpolate import griddata
 
     # read in data from a single file
-    def read_single_mo_file(filepath, mod):
+    def read_single_mo_file_old_style(filepaths, mod):
 
         """
         Read in MO data from a single file
@@ -202,7 +253,7 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
         data ={}
 
         # open files
-        file = Dataset(filepath)
+        file = Dataset(filepaths[0])
 
         # -------------------
         # Sort height issue with UKV vs LON out
@@ -252,13 +303,108 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
 
         return data
 
+    def read_single_mo_file_new_style(filepaths, mod):
+
+        """
+        Read in MO data from a single file
+        :param filepath: single day filepath [str]
+        :param mod: model used for forecast [str]
+        :return: data [dictionary] variables within it
+
+        Note: UKV has an extra height at the top, of 0.0 m and all the variables at that height are
+        nans... for some reason. Difference between UKV and LON heights
+            are v. small (linear decrease from - at 0 m agl, ~4 m at 5000 km agl; becoming
+            constant at -12 m at 15000 and above agl). Therefore if UKV, remove the top height.
+
+        EW 09/03/18
+        """
+
+        stash_codes = {'air_temperature': 'm01s16i004',
+                       'air_pressure': 'm01s00i408',
+                       'specific_humidity': 'm01s00i010'}
+
+        # define dictionary
+        data ={}
+
+        # open multiple files together as a single file
+        #files = MFDataset(filepaths)
+
+        # use the first file to get the height and time variables (common to all files)
+        file = Dataset(filepaths[0])
+
+        # find out which file belongs to which variable
+        var_files = {}
+        for var, code in stash_codes.iteritems():
+            loc = np.array([code in i for i in filepaths]) # find file location
+            paired_file = np.array(filepaths)[loc] # find specific filepath
+            var_files[var] = Dataset(paired_file[0]) # store the Dataset() object, for that variable, with it's name
+
+
+        # -------------------
+        # Sort height issue with UKV vs LON out
+
+        # if UKV have it remove the top height... otherwise, if LON then keep all heights
+        height_raw = np.array(file.variables['level_height'])
+
+        # double check number of heights. UKV can have 71 with the top level being 0.0 and erronous, so if model is UKV and there are 71 levels,
+        # remove the top one.
+
+        # if there are 71 levels, remove the top one
+        if (mod == 'UKV') & (len(height_raw) == 71):
+            # up to but not including the top level (usually level 70)
+            height_range_idx = np.arange(len(height_raw)-1)
+        else:
+            # include the top
+            height_range_idx = np.arange(len(height_raw))
+
+        # ----------------
+        # Read in the main data
+
+        # get time
+        raw_start_time = file.variables['time'][:]
+        tstr = file.variables['time'].units
+        pro_start_time = time_to_datetime(tstr, raw_start_time)[0]
+        forecast_time = file.variables['forecast_period'][:]
+        data['pro_time'] = np.array([pro_start_time + dt.timedelta(hours=int(i)) for i in forecast_time])
+
+        # height - height1 = Theta levels, which all these variables are also on; just 'height' in forecast file
+        #   is rho levels, which is incorrect to use here.
+        data['height'] = np.array(file.variables['level_height'])[height_range_idx]
+
+        # pressure [Pa] .shape(1, time, height, 3, 3)
+        # data['pressure'] = var_files['air_pressure'].variables['air_pressure'][0, :, height_range_idx, 1, 1]
+        data['pressure'] = var_files['air_pressure'].variables['air_pressure'][1, 1, :, height_range_idx]
+
+        # temperature [K]
+        data['air_temperature'] =  var_files['air_temperature'].variables['air_temperature'][1, 1, :, height_range_idx]
+
+        # Specific humidity [kg kg-1]
+        data['q'] =  var_files['specific_humidity'].variables['specific_humidity'][1, 1, :, height_range_idx]
+
+        # calculate air density
+        data['dry_air_density'] = np.array(data['pressure']) / (Rstar * np.array(data['air_temperature']))
+        data['wv_density'] = np.array(data['q']) * data['dry_air_density']
+
+        file.close()
+        for var_file in var_files.itervalues():
+            var_file.close()
+
+        return data
+
     # Gas constant for dry air
     Rstar = 287
 
     # read in and concatonate the two files
-    yest_data = read_single_mo_file(yest_filepath, yest_mod)
-    day_data = read_single_mo_file(day_filepath, day_mod)
+    # data file and format changed on 1st Jan 2018. Therefore change read style for older and newer files
+    if yest < dt.datetime(2018, 1, 1): # old style
+        yest_data = read_single_mo_file_old_style(yest_filepaths, yest_mod)
+    else:
+        yest_data = read_single_mo_file_new_style(yest_filepaths, yest_mod)
 
+    if day < dt.datetime(2018, 1, 1): # old style
+        day_data = read_single_mo_file_old_style(day_filepaths, day_mod)
+    else:
+        day_data = read_single_mo_file_new_style(day_filepaths, day_mod)
 
     # trim and merge data from both forecasts to get data for the main day - get idx to identify which data to keep for each forecast
     #   need to make sure kept data does not overlap, hence yest_data will end where day_data takes over
@@ -275,9 +421,12 @@ def mo_read_calc_wv_transmission(yest_filepath, day_filepath, yest_mod, day_mod,
     #        | yest -----> |[day, hr=forecast hour of day + 1 hours of wind up] day ---------> | if yest == LON
     day_forecast_start_hour = day_data['pro_time'][0].hour # forecast start time
     if yest_mod == 'UKV':
-        split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
+        # split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
+        split_time = dt.datetime(day.year, day.month, day.day, 0, day.minute, day.second)
+        split_time += dt.timedelta(hours=day_forecast_start_hour + 3)
     else:
-        split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 1, day.minute, day.second)
+        split_time = dt.datetime(day.year, day.month, day.day, 0, day.minute, day.second)
+        split_time += dt.timedelta(hours=day_forecast_start_hour + 1)
 
 
     # yest: if time is before split_time and on the same day as 'day'
