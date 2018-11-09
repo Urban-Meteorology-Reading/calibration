@@ -35,9 +35,9 @@ def mo_create_filename_old_style(main_day, **kwargs):
     paths_exist = False
 
     # main data dir
-    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
-                 '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
-    # datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/MO/'
+    #datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+    #             '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
 
     # model and start run times to try (in order of preference, as used in the filename)
     models = ['UKV', 'LON']
@@ -421,7 +421,7 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
     #        | yest -----> |[day, hr=forecast hour of day + 1 hours of wind up] day ---------> | if yest == LON
     day_forecast_start_hour = day_data['pro_time'][0].hour # forecast start time
     if yest_mod == 'UKV':
-        # split_time = dt.datetime(day.year, day.month, day.day, day_forecast_start_hour + 3, day.minute, day.second)
+        # use dt.timedelta() encase number of hours goes over 24
         split_time = dt.datetime(day.year, day.month, day.day, 0, day.minute, day.second)
         split_time += dt.timedelta(hours=day_forecast_start_hour + 3)
     else:
