@@ -15,26 +15,30 @@ Created by Elliott Warren Thurs 08/03/2018
 Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 """
 
-# ----------------
-## Set up on met-cluster
-# import sys
-# import os
-# import numpy as np
-# import datetime as dt
-# # append dir containing lcu utility library
-# sys.path.append(os.environ['HOME']+'/Temp_Elliott/scripts/calibration')
-# import LUMO_calibration_Utils as lcu
-# ----------------
+# need to use 'module load python/canopy-2.1.3' from met-cluster. Default python env does not have the right modules... (e.g. dateutil.relativedelta)
+# cd $HOME/script/cronJobs; ./qsubCron_V6.ksh -p $HOME/Temp_Elliott/scripts/calibration/TE_lumoCeilometerCalibration.ksh
 
 # ----------------
+import os
 import sys
 # append dir containing lcu utility library
-#sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
-sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+sys.path.append(os.environ['HOME']+'Temp_Elliott/scripts/calibration')
+#sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
 import LUMO_calibration_Utils as lcu
-import os
+
 import numpy as np
 import datetime as dt
+
+# what to do to calibrate more data
+# L1
+# 1. make sure MO NWP water vapour files are present on the cluster
+# 2. change site_id and year below
+# 3. run for each site (IMU has issues on some days - known bug)
+# L2
+# 4. download CCW30 and CAL files for year AND neighbouring years if possible
+# 5. adjust the calibration_periods file with updates on firmware, hardware or cleaning
+# 6. ncview the L1 CAL files mode_wv to check if there are any sudden changes
+# 7. create a new 'regime' below to determine how the interpolated calibration will be estimated (block avg, trans, etc)
 
 # ----------------------------
 # Setup
@@ -67,11 +71,11 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        # start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
-        # end_date = dt.datetime(year, 12, 31)
-        date_range = lcu.date_range(dt.datetime(2015, 2, 4), dt.datetime(2015, 2, 4), 1, 'day') # old style test day
+        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
+        end_date = dt.datetime(year, 12, 31)
+        #date_range = lcu.date_range(dt.datetime(2015, 2, 4), dt.datetime(2015, 2, 4), 1, 'day') # old style test day
         #date_range = lcu.date_range(dt.datetime(2018, 2, 05), dt.datetime(2018, 2, 05), 1, 'day') # new style test day
-        # date_range = lcu.date_range(start_date, end_date, 1, 'day')
+        date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
         time_deltas = [i - dt.datetime(year,1,01) for i in date_range]
@@ -144,17 +148,17 @@ for site_id in site_ids:
             # ----------------------------
 
             # find directory name for bsc data
-            #datadir_bsc = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
-            datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/'+str(year)+\
-                          '/London/L1/'+day.strftime('%m')+'/'
+            datadir_bsc = os.environ['MM_DAILYDATA']+'/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
+            #datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/'+str(year)+\
+            #              '/London/L1/'+day.strftime('%m')+'/'
 
             # Note: L0 BSC heights are corrected for height above ground
             #       L1 BSC heights are NOT corrected and are therefore just the range...
             bsc_filepath = datadir_bsc + ceil_id+'_BSC_'+site+'_'+day.strftime('%Y%j')+'_15sec.nc'
-            # bsc_filepath = datadir_bsc + 'CL31-D_BSC_NK_'+day.strftime('%Y%j')+'_15sec.nc'
 
             # check if file exists
             if os.path.isfile(bsc_filepath) == True:
+            # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['041', '230', '249', '255', '257', '261', '268', '275']): # IMU 2017
 
                 # add 1 to show that a file was present
                 num_files_present += 1
