@@ -159,6 +159,7 @@ for site_id in site_ids:
             # check if file exists
             if os.path.isfile(bsc_filepath) == True:
             # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['041', '230', '249', '255', '257', '261', '268', '275']): # IMU 2017
+            # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['039', '099', '109', '135', '198']): # IMU 2018
 
                 # add 1 to show that a file was present
                 num_files_present += 1
