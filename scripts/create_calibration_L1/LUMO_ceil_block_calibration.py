@@ -340,24 +340,4 @@ for site_id in site_ids:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 print 'END PROGRAM'
