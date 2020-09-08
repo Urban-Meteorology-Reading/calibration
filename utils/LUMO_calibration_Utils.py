@@ -6,12 +6,11 @@ Functions copied/tweaked from Emma Hopkin's set of Utility functions.
 LUMO_calibration_Utils created by Elliott Thurs 08/03/2018
 """
 
-from netCDF4 import Dataset, MFDataset
+from netCDF4 import Dataset
 import numpy as np
 import datetime as dt
 import operator
 from scipy import stats
-
 
 
 # Reading ------------------------------------------------------------
@@ -35,9 +34,9 @@ def mo_create_filename_old_style(main_day, **kwargs):
     paths_exist = False
 
     # main data dir
-    #datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
-    #             '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
-    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
+    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+                 '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    #datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
 
     # model and start run times to try (in order of preference, as used in the filename)
     models = ['UKV', 'LON']
@@ -110,9 +109,9 @@ def mo_create_filename_new_style(main_day, **kwargs):
                    'specific_humidity': 'm01s00i010'}
 
     # main data dir
-    #datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
-    #             '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
-    datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
+    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+                 '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
+    #datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
 
     # model and start run times to try (in order of preference, as used in the filename)
     models = ['UKV', 'LON']
@@ -1146,11 +1145,13 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     EW 13//04/18
     """
 
+    from os import environ
+
     # Create save file id (put CAL in the id)
     a = site_id.split('_')
     site_save_id = a[0] + '_CAL_' + a[1]
 
-    ncsavedir = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
+    ncsavedir = environ['MM_DAILYDATA']+'data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
     # ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
 
     # Create save filename
