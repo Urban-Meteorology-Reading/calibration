@@ -211,7 +211,6 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
         whole_idx = np.where((np.array(window_trans_daily['time']) > values[0]) &
                              (np.array(window_trans_daily['time']) < values[1]))
 
-        # KSS45W
         if values[2] == 'time':
 
             # can do this with [x] as days are equally spaced
@@ -257,7 +256,7 @@ def plot_hist(window_trans_daily):
     data = window_trans_daily['samples'][~np.isnan(window_trans_daily['samples'])]
     fig = plt.figure()
     plt.hist(data, bins=50)
-    plt.savefig(savedir + '/' + site + '/samplesize.png')
+    plt.savefig(savedir + site + '_samplesize.png')
     plt.close(fig)
 
     return
@@ -630,53 +629,70 @@ if __name__ == '__main__':
     maindir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/'
     datadir = maindir + 'data/'
     ceildatadir = datadir + 'L1/'
+    ceilclouddatadir = ceildatadir + 'CCW30/'
     perioddatadir = datadir + 'ceilometer_periods/'
     savedir = maindir + 'figures/'
     L2calsavedir = datadir + 'L2/'
 
-    # site_bsc = {'CL31-B_RGS': 28.1 - 19.4, 'CL31-C_MR': 32.0 - 27.5, 'CL31-A_KSS45W': 64.3, 'CL31-D_NK': 27.0 - 23.2}
     # site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
-    site_ids = ['CL31-D_NK']
+    site_ids = ['CL31-A_IMU']# ['CL31-B_RGS', 'CL31-C_MR', 'CL31-D_SWT', 'CL31-E_NK']
+    #site_ids = ['CL31-D_NK']
 
-    # paper 2 clear sky days to overplot onto the calibration
-    daystrList = ['20161125','20161129','20161130','20161204','20170120','20170122','20170325','20170408','20170526',
-                  '20170828','20161102','20161205','20161227','20161229','20170105','20170117','20170118','20170119',
-                  '20170121','20170330','20170429','20170522','20170524','20170601','20170614','20170615','20170619',
-                  '20170620','20170626','20170713','20170717','20170813','20170827','20170902']
+    # # paper 2 clear sky days to overplot onto the calibration
+    # daystrList = ['20161125','20161129','20161130','20161204','20170120','20170122','20170325','20170408','20170526',
+    #               '20170828','20161102','20161205','20161227','20161229','20170105','20170117','20170118','20170119',
+    #               '20170121','20170330','20170429','20170522','20170524','20170601','20170614','20170615','20170619',
+    #               '20170620','20170626','20170713','20170717','20170813','20170827','20170902']
+
+    # paper 3 clear sky cases
+    daystrList = ['20180216', '20180406', '20180418', '20180419', '20180420',
+        '20180505', '20180506', '20180507', '20180514', '20180515',
+        '20180519', '20180520', '20180805', '20180806', '20180902']
 
     # new clear sky days
-
     clear_days = eu.dateList_to_datetime(daystrList)
 
-    # # regime styles - [start, end, regime type]
-    # regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
-    #                              '2': [dt.date(2015, 9, 01), dt.date(2016, 4, 01), 'block_avg']},
-    #            'CL31-B_RGS': {'1': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']},
-    #            'CL31-C_MR': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 28), 'block_avg'],
-    #                          '2': [dt.date(2016, 7, 28), dt.date(2016, 12, 31), 'block_avg']},
-    #            'CL31-D_NK': {'1': [dt.date(2015, 2, 5), dt.date(2016, 12, 31), 'window_transmission']}}
-
     # revised regime styles for paper 2 - [start, end, regime type]
-    regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
-                                 '2': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
+    regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
                'CL31-A_IMU': {'1': [dt.date(2016, 1, 1), dt.date(2016, 8, 15), 'window_transmission'],
                               '2': [dt.date(2016, 8, 16), dt.date(2017, 5, 31), 'window_transmission'],
-                              '3': [dt.date(2017, 5, 31), dt.date(2017, 12, 31), 'window_transmission']},
+                              '3': [dt.date(2017, 5, 31), dt.date(2018, 12, 31), 'window_transmission']},
                'CL31-B_RGS': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 16), 'window_transmission'],
                               '2': [dt.date(2016, 7, 17), dt.date(2017, 1, 1), 'time'],
                               '3': [dt.date(2016, 7, 17), dt.date(2017, 11, 17), 'time'],
-                              '4': [dt.date(2017, 11, 18), dt.date(2017, 12, 31), 'block_avg']},
+                              '4': [dt.date(2017, 11, 17), dt.date(2018, 12, 31), 'window_transmission']},
                'CL31-C_MR': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 28), 'block_avg'],
-                             '2': [dt.date(2016, 7, 28), dt.date(2017, 12, 31), 'block_avg']},
+                             '2': [dt.date(2016, 7, 28), dt.date(2018, 12, 31), 'block_avg']},
                'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
                              '2': [dt.date(2014, 1, 1), dt.date(2015, 5, 5), 'window_transmission'],
-                             '3': [dt.date(2015, 5, 5), dt.date(2016, 12, 31), 'window_transmission']},
-               'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2017, 12, 31), 'block_avg']},
-               'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2017, 12, 31), 'window_transmission']}}
+                             '3': [dt.date(2015, 5, 5), dt.date(2018, 12, 31), 'window_transmission']},
+               'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2018, 12, 31), 'window_transmission']},
+               'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2018, 12, 31), 'window_transmission']}}
+    # regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
+    #                              '2': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
+    #            'CL31-A_IMU': {'1': [dt.date(2016, 1, 1), dt.date(2016, 8, 15), 'window_transmission'],
+    #                           '2': [dt.date(2016, 8, 16), dt.date(2017, 5, 31), 'window_transmission'],
+    #                           '3': [dt.date(2017, 5, 31), dt.date(2018, 12, 31), 'window_transmission']},
+    #            'CL31-B_RGS': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 16), 'window_transmission'],
+    #                           '2': [dt.date(2016, 7, 17), dt.date(2017, 1, 1), 'time'],
+    #                           '3': [dt.date(2016, 7, 17), dt.date(2017, 11, 17), 'time'],
+    #                           '4': [dt.date(2017, 11, 18), dt.date(2018, 6, 1), 'block_avg'],
+    #                           '5': [dt.date(2018, 6, 1), dt.date(2018, 12, 31), 'window_transmission']},
+    #            'CL31-C_MR': {'1': [dt.date(2015, 2, 5), dt.date(2016, 7, 28), 'block_avg'],
+    #                          '2': [dt.date(2016, 7, 28), dt.date(2018, 12, 31), 'block_avg']},
+    #            'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
+    #                          '2': [dt.date(2014, 1, 1), dt.date(2015, 5, 5), 'window_transmission'],
+    #                          '3': [dt.date(2015, 5, 5), dt.date(2018, 12, 31), 'window_transmission']},
+    #            'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2017, 12, 31), 'block_avg']},
+    #            'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2018, 12, 31), 'window_transmission']}}
 
     calib_pro = {}
 
-    years = [2014, 2015, 2016]
+    # years to read in CAL data for
+    years = [2016, 2017, 2018]
+
+    # years to save calibration for
+    save_years = [2018]
 
     # read L1 calibration data
     # calib_all = read_cal()
@@ -703,9 +719,14 @@ if __name__ == '__main__':
         periods = read_periods(perioddatadir, site_id)
 
         # read transmission
-        # window_trans = read_window_trans(site, datadir)
-        ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years]
-        window_trans = eu.netCDF_read(ccw30_filepaths)
+        # window_trans = read_window_trans(site, datadir) ceilclouddatadir
+        # ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years] # annual
+        # list of all files for this site
+        date_range = eu.date_range(dt.datetime(years[0], 1, 1), dt.datetime(years[-1], 12, 31), 1, 'days')
+        ccw30_filepaths = [ceilclouddatadir + ceil_id + '_CCW30_' + site + '_' + i.strftime('%Y%j') + '_15min.nc' for i in date_range]
+
+        #ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years]
+        window_trans = eu.netCDF_read(ccw30_filepaths, skip_missing_files=True)
 
         # read pulse energy
         # pulse = read_pulse(site, datadir)
@@ -734,19 +755,19 @@ if __name__ == '__main__':
 
         # save L2 calibration data (netCDF)
         # save each year into a different file
-        for year in years:  # which years to save
+        for year in save_years:  # which years to save
             lcu.netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir)
 
         # plot scatter of c_pro and window transmission
         # plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=True)
-        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=False)
+        # plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=False)
         plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=False)
         plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=True)
 
-        # check out a specif period
-        startDay = dt.datetime(2017,01,01)
-        endDay = dt.datetime(2017,12,31)
-        scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
+        # # check out a specif period
+        # startDay = dt.datetime(2017,01,01)
+        # endDay = dt.datetime(2017,12,31)
+        # scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
 
         # # convert num samples to number of samples by hour (2 hours)
         # window_trans_daily['sample_hr'] = window_trans_daily['samples']/240.0
@@ -782,16 +803,15 @@ if __name__ == '__main__':
 
 
         # very quick plot histogram of sample size
-        plot_hist(window_trans_daily)
+        #plot_hist(window_trans_daily)
 
         # plot data for each period separately
-        plot_period(periods, window_trans_daily, site, savedir)
+        #plot_period(periods, window_trans_daily, site, savedir)
         # remove transmission enteries in periods
         # find all NONE transmission enteries
         # idx = np.where(np.array(periods['Type']) != 'Transmission')[0]
 
-
-        plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days)
+        #plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days)
 
         # ----------------
         # moving average the data
@@ -806,7 +826,7 @@ if __name__ == '__main__':
         # time-series point plot of calibration, window trans and pulse energy.
         # plot_cal_wind_pulse_timeseries(calib_dates, calib_raw, window_trans, pulse, savedir, site, clear_days)
 
-        plot_cal_wind_pulse_timeseries(window_trans_daily, savedir, site, clear_days)
+       # plot_cal_wind_pulse_timeseries(window_trans_daily, savedir, site, clear_days)
 
         # scatter all the data for a site. Max daily window trans verses calibration coeff
         #scatter_window_c_all(window_trans_daily, site, savedir)
