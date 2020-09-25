@@ -15,12 +15,12 @@ from scipy import stats
 
 # Reading ------------------------------------------------------------
 
-def mo_create_filename_old_style(main_day, **kwargs):
+def mo_create_filename_old_style(main_day, base_dir, **kwargs):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
     :param main_day: [datetime]
-    :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
+    :param base_dir: base directory for MO files (on RACC this os os.environ["MM_DAILYDATA"] - this is default)
     :return: filepaths: full filepath to main days's data
     return: mod: model name
 
@@ -28,13 +28,12 @@ def mo_create_filename_old_style(main_day, **kwargs):
     """
 
     from os.path import exists
-    from os import environ
-
+    
     # set path exists flag as False - changes if a file is found
     paths_exist = False
 
     # main data dir
-    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+    datadir_mo = base_dir +'/data/'+main_day.strftime('%Y')+\
                  '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
     #datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
 
@@ -85,12 +84,12 @@ def mo_create_filename_old_style(main_day, **kwargs):
 
     return filepaths, model_i, Z, paths_exist
 
-def mo_create_filename_new_style(main_day, **kwargs):
+def mo_create_filename_new_style(main_day, base_dir, **kwargs):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
     :param main_day: [datetime]
-    :param datadir_mo: main data directory for MO data, subdirectories from the date will be made in this function
+    :param base_dir: base directory for MO files (on RACC this os os.environ["MM_DAILYDATA"] - this is default)
     :return: yest_filepath: full filepath to yesterday's data
     :return: day_filepath: full filepath to day's data
     return: mod: model name
@@ -99,7 +98,6 @@ def mo_create_filename_new_style(main_day, **kwargs):
     """
 
     from os.path import exists
-    from os import environ
 
     # set paths exist flag as False - changes if a suitable file path is found
     paths_exist = False
@@ -109,7 +107,7 @@ def mo_create_filename_new_style(main_day, **kwargs):
                    'specific_humidity': 'm01s00i010'}
 
     # main data dir
-    datadir_mo = environ['MM_DAILYDATA']+'data/'+main_day.strftime('%Y')+\
+    datadir_mo = base_dir+'/data/'+main_day.strftime('%Y')+\
                  '/London/L2/MetOffice/DAY/'+main_day.strftime('%j')+'/'
     #datadir_mo = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/MO/'
 
@@ -725,7 +723,7 @@ def get_counts(variable):
     if len(vartoplot) > 2:
         b = (np.round(np.max(vartoplot)))
 
-        counts, bins = np.histogram(vartoplot, bins=(2 * b), range=(0, b))
+        counts, bins = np.histogram(vartoplot, bins=int(2 * b), range=(0, b))
 
     else:
         counts = 0
@@ -1128,7 +1126,7 @@ def S_mode_mean(Step2_S, Cal_hist):
 ## Saving
 
 def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
-                            site_id, site, year):
+                            site_id, site, year, base_dir):
     """
     Save the year's calibration data in a netCDF file. Store it in the ANNUAL folder
     :param C_modes_wv: wv is with water vapour correction
@@ -1140,18 +1138,17 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     :param site_id: full site id e.g. 'CL31-A_KSS45W'
     :param site: site name e.g. 'KSS45W'
     :param year: year processed [int]
+    :param base_dir: base directory (on RACC this is MM_DAILYDATA)
     :return:
 
     EW 13//04/18
     """
 
-    from os import environ
-
     # Create save file id (put CAL in the id)
     a = site_id.split('_')
-    site_save_id = a[0] + '_CAL_' + a[1]
+    site_save_id = a[0] + '_CAL_' + a[1] + '_KB'
 
-    ncsavedir = environ['MM_DAILYDATA']+'data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
+    ncsavedir = base_dir+'data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
     # ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
 
     # Create save filename

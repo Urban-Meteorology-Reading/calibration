@@ -7,7 +7,7 @@ import os # operating system library to issue Unix commands
 from os.path import join # use join to link file names to the directory (avoids error with '/' in the path)
 #import ceilometer_utils as cutils, cristina's utilities. you won't need this yet.
 import iris  # data management and plotting library from met office
-import ncUtils # library for reading netCDF files
+#import ncUtils # library for reading netCDF files
 import iris.quickplot as qplt # more plotting routines
 import matplotlib.pyplot as plt # plotting library (not Met Office)
 from netCDF4 import Dataset # to read standard netCDF files

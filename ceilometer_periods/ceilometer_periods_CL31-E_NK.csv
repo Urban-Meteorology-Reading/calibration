@@ -1,0 +1,11 @@
+﻿Date,Reason,Type
+07/07/2016,Deployed,Deployed
+15/08/2016,Window transmission recovers but starts to fall,Transmission
+31/08/2016,Window transmission recovers but starts to fall,Transmission
+21/09/2016,firmware change to 2.03,Firmware
+17/10/2016,firmware change to 2.04,Firmware
+26/10/2016,Window transmission falls quickly,Transmission
+05/11/2016,Window transmission recovers,Transmission
+13/09/2016,Cleaned,Transmission
+21/08/2018,Cleaned,Transmission
+14/11/2018,Removed,Removed

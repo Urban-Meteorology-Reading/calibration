@@ -1,0 +1,17 @@
+﻿Date,Reason,Type
+22/04/2009,Deployed,Deployed
+24/06/2013,Window transmission recovers but begins to fall again,Transmission
+01/01/2014,Window transmission recovers,Transmission
+21/02/2014,firmware change to 1.71,Firmware
+01/06/2014,Pulse energy decreasing,Pulse
+01/01/2015,Window transmission starts to fall,Transmission
+30/01/2015,Window transmission recovers but begins to fall again,Transmission
+24/02/2015,replaced Laster Tx CL311 with CL321.,Hardware
+24/02/2015,Pulse energy recovers,Pulse
+24/02/2015,Window Transmission recovers,Transmission
+20/05/2015,Window transmission recovers but begins to fall again,Transmission
+20/06/2015,Window transmission recovers but begins to fall again,Transmission
+25/07/2015,Window transmission recovers but begins to fall again,Transmission
+21/08/2015,Window transmission recovers but begins to fall again,Transmission
+23/11/2015,firmware change to 1.72,Firmware
+14/04/2016,Removed,Removed

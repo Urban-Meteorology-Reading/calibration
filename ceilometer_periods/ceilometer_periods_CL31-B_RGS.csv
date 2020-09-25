@@ -1,0 +1,18 @@
+﻿Date,Reason,Type
+26/03/2009,Deployed,Deployed
+26/03/2009,firmware change to 1.61,Firmware
+01/05/2012,Pulse energy decreasing,Pulse
+01/10/2012,Pulse energy immediately returns to ~100 %,Pulse
+01/10/2012,Window transmission starts to reduce,Transmission
+26/02/2014,firmware change to 1.71,Firmware
+01/03/2014,Window transmission recovers to ~ 100 %,Transmission
+01/04/2014,Window transmission starts to reduce,Transmission
+16/04/2015,Window transmission recovers and starts to reduce,Transmission
+01/08/2015,"Battery replaced, slight change in transmission",Transmission
+18/08/2015,Window transmission recovers but begins to reduce,Transmission
+23/11/2015,Windows transmission recovers,Transmission
+23/11/2015,firmware change to 1.72,Firmware
+14/06/2016,Removed for repair,Removed
+26/06/2016,Re-deployed,Deployed
+17/10/2016,firmware change to 1.74,Firmware
+17/03/2020,Still going,Present

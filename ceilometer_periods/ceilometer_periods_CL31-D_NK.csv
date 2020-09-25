@@ -1,0 +1,17 @@
+﻿Date,Reason,Type
+02/02/2011,Deployed,Deployed
+14/03/2011,Window transmission falls,Transmission
+31/03/2011,Window transmission recovers,Transmission
+21/02/2014,firmware change to 2.02,Firmware
+21/10/2014,Cleaned,Transmission
+05/04/2015,Window transmission begins to fall,Transmission
+05/05/2015,firmware change to 2.03,Firmware
+08/05/2015,Window transmission recovers but begins to fall,Transmission
+03/08/2015,Window transmission falls to <20%,Transmission
+14/08/2015,Window transmission recovers slightly to ~70 %,Transmission
+26/08/2015,Window transmission recovers but begins to fall,Transmission
+11/11/2015,Window transmission recovers and begins to fall,Transmission
+11/03/2016,Window transmission recovers and begins to fall,Transmission
+11/05/2016,Window transmission recovers momentarily but returns to poor values,Transmission
+14/06/2016,Window transmission recovers momentarily but returns to poor values,Transmission
+07/07/2016,Removed,Removed

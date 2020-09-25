@@ -6,9 +6,11 @@ Created on 15/05/17 by EW
 """
 
 import sys
+import os
 # append dir containing lcu utility library
-# sys.path.append('/home/micromet/Temp_Elliott/scripts/calibration')
-sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
+sys.path.append(os.path.join(os.environ['USERPROFILE'], 'Documents', 'ceilometer_calibration', 'utils'))
+
+#sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
 import LUMO_calibration_Utils as lcu
 
 import matplotlib.pyplot as plt
@@ -133,7 +135,6 @@ def calc_daily_window_trans(window_trans, calib_dates_days, calib):
     :param calib_raw:
     :return:
     """
-
     # find all unique days in window_trans time
     # loop through days
     # find all dates with that day
@@ -155,10 +156,10 @@ def calc_daily_window_trans(window_trans, calib_dates_days, calib):
     window_trans_daily['samples'][:] = np.nan
 
     for day, dayIdx in zip(daysRange, np.arange(len(daysRange))):
-
+        print(day)
         # idx for all days on this day
         winIdx = np.where(window_trans_dates == day)
-
+        #ipdb.set_trace()
         # store maximum window transmission for the day
         if winIdx[0].size != 0:
             window_trans_daily['max_window'][dayIdx] = np.nanmax(window_trans['transmission'][winIdx])
@@ -206,13 +207,18 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
 
     # create the processed calibration coeffs
     for reg, values in regimes[site].iteritems():
-
+        print(reg)
+        #check if start date of period is after end date of time or start date of time before start of period
+        if min(window_trans_daily['time']) > values[1] or max(window_trans_daily['time']) < values[0]:
+            print('No data within this period')
+            continue
+            
         # find matching dates to process over
         whole_idx = np.where((np.array(window_trans_daily['time']) > values[0]) &
                              (np.array(window_trans_daily['time']) < values[1]))
-
+        
+        
         if values[2] == 'time':
-
             # can do this with [x] as days are equally spaced
             x = whole_idx[0]
             y = window_trans_daily['c_wv'][whole_idx]
@@ -626,14 +632,19 @@ if __name__ == '__main__':
     # ==============================================================================
 
     # directories
-    maindir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/'
-    datadir = maindir + 'data/'
-    ceildatadir = datadir + 'L1/'
-    ceilclouddatadir = ceildatadir + 'CCW30/'
-    perioddatadir = datadir + 'ceilometer_periods/'
-    savedir = maindir + 'figures/'
-    L2calsavedir = datadir + 'L2/'
-
+# =============================================================================
+#     maindir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/'
+#     datadir = maindir + 'data/'
+#     ceildatadir = datadir + 'L1/'
+#     ceilclouddatadir = ceildatadir + 'CCW30/'
+#     perioddatadir = datadir + 'ceilometer_periods/'
+#     savedir = maindir + 'figures/'
+#     L2calsavedir = datadir + 'L2/'
+# =============================================================================
+    ceildatadir = os.path.join('Z:'+os.sep, 'Tier_raw', 'data', '2018', 'London', 'L1', 'IMU', 'ANNUAL')
+    ceilclouddatadir = os.path.join('Z:'+os.sep, 'Tier_raw', 'data', '2018', 'London', 'L1', 'IMU', 'DAY')
+    L2calsavedir = os.path.join('Z:'+os.sep, 'Tier_raw', 'data', '2018', 'London', 'L2', 'IMU', 'ANNUAL') 
+    perioddatadir = os.path.join(os.environ['USERPROFILE'], 'Documents', 'ceilometer_calibration', 'ceilometer_periods')
     # site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
     site_ids = ['CL31-A_IMU']# ['CL31-B_RGS', 'CL31-C_MR', 'CL31-D_SWT', 'CL31-E_NK']
     #site_ids = ['CL31-D_NK']
@@ -650,7 +661,7 @@ if __name__ == '__main__':
         '20180519', '20180520', '20180805', '20180806', '20180902']
 
     # new clear sky days
-    clear_days = eu.dateList_to_datetime(daystrList)
+    #clear_days = eu.dateList_to_datetime(daystrList)
 
     # revised regime styles for paper 2 - [start, end, regime type]
     regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'block_avg']},
@@ -689,7 +700,7 @@ if __name__ == '__main__':
     calib_pro = {}
 
     # years to read in CAL data for
-    years = [2016, 2017, 2018]
+    years = [2018]
 
     # years to save calibration for
     save_years = [2018]
@@ -708,7 +719,7 @@ if __name__ == '__main__':
         print '... Processing ' + site
 
         # read in calibration data for site, for all years
-        calib_filepaths = [ceildatadir + ceil_id +'_CAL_'+site+'_'+str(i)+'.nc' for i in years]
+        calib_filepaths = [os.path.join(ceildatadir, ceil_id +'_CAL_'+site+'_'+str(i)+'.nc') for i in years]
         calib = eu.netCDF_read(calib_filepaths)
 
         # ==============================================================================
@@ -716,14 +727,14 @@ if __name__ == '__main__':
         # ==============================================================================
 
         # read periods
-        periods = read_periods(perioddatadir, site_id)
+        periods = read_periods(perioddatadir + os.sep, site_id)
 
         # read transmission
         # window_trans = read_window_trans(site, datadir) ceilclouddatadir
         # ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years] # annual
         # list of all files for this site
         date_range = eu.date_range(dt.datetime(years[0], 1, 1), dt.datetime(years[-1], 12, 31), 1, 'days')
-        ccw30_filepaths = [ceilclouddatadir + ceil_id + '_CCW30_' + site + '_' + i.strftime('%Y%j') + '_15min.nc' for i in date_range]
+        ccw30_filepaths = [os.path.join(ceilclouddatadir, i.strftime('%j'), ceil_id + '_CCW30_' + site + '_' + i.strftime('%Y%j') + '_15min.nc') for i in date_range]
 
         #ccw30_filepaths = [ceildatadir + ceil_id + '_CCW30_' + site + '_' + str(i) + '_15min.nc' for i in years]
         window_trans = eu.netCDF_read(ccw30_filepaths, skip_missing_files=True)
@@ -756,7 +767,7 @@ if __name__ == '__main__':
         # save L2 calibration data (netCDF)
         # save each year into a different file
         for year in save_years:  # which years to save
-            lcu.netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir)
+            lcu.netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir + os.sep)
 
         # plot scatter of c_pro and window transmission
         # plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days, plot_clear=True)

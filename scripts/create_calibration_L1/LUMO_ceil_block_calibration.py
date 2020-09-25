@@ -22,7 +22,7 @@ Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 import os
 import sys
 # append dir containing lcu utility library
-sys.path.append(os.environ['HOME']+'Temp_Elliott/scripts/calibration')
+sys.path.append(os.path.join(os.environ['USERPROFILE'], 'Documents', 'ceilometer_calibration', 'utils'))
 #sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
 import LUMO_calibration_Utils as lcu
 
@@ -46,17 +46,20 @@ import datetime as dt
 
 # ceilometers to loop through (full ceilometer ID)
 #site_ids = ['CL31-C_MR'] # test with 'new' style
-site_ids = ['CL31-A_KSS45W']
+site_ids = ['CL31-A_IMU']
 #site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
 
 # years to loop through [list]
 # years = [2016, 2017, 2018]
-years = [2015]
+years = [2018]
 
 # settings to tune calibration
 ratio_filt = 0.05
 maxB_filt = -10  #set high so that this filter is no longer used
 cont_profs = 5  #number of continuous profiles required for calibration (must be odd no.)
+
+# base directory for files (MM_DAILYDATA equivalent)
+base_dir = os.path.join('Z:' + os.sep, 'Tier_raw')
 
 # loop through site ids
 for site_id in site_ids:
@@ -71,7 +74,7 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
+        start_date = dt.datetime(year, 10, 21)  # comparing my modes to EH modes
         end_date = dt.datetime(year, 12, 31)
         #date_range = lcu.date_range(dt.datetime(2015, 2, 4), dt.datetime(2015, 2, 4), 1, 'day') # old style test day
         #date_range = lcu.date_range(dt.datetime(2018, 2, 05), dt.datetime(2018, 2, 05), 1, 'day') # new style test day
@@ -136,7 +139,7 @@ for site_id in site_ids:
         # loop through each day individually, create calibration coefficient and store in list variables
 
         for day in date_range:
-
+            
             # 3 char DOY
             doy = day.strftime('%j')
 
@@ -148,18 +151,17 @@ for site_id in site_ids:
             # ----------------------------
 
             # find directory name for bsc data
-            datadir_bsc = os.environ['MM_DAILYDATA']+'/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
-            #datadir_bsc = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/testing/'+str(year)+\
-            #              '/London/L1/'+day.strftime('%m')+'/'
+            #datadir_bsc = os.environ['MM_DAILYDATA']+'/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
+            datadir_bsc = os.path.join(base_dir, 'data', str(year),'London', 'L1', site, 'DAY', doy) + os.sep
 
             # Note: L0 BSC heights are corrected for height above ground
             #       L1 BSC heights are NOT corrected and are therefore just the range...
             bsc_filepath = datadir_bsc + ceil_id+'_BSC_'+site+'_'+day.strftime('%Y%j')+'_15sec.nc'
 
             # check if file exists
-            if os.path.isfile(bsc_filepath) == True:
+            #if os.path.isfile(bsc_filepath) == True:
             # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['041', '230', '249', '255', '257', '261', '268', '275']): # IMU 2017
-            # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['039', '099', '109', '135', '198']): # IMU 2018
+            if (os.path.isfile(bsc_filepath) == True) & (doy not in ['039', '099', '109', '135', '198', '287', '288', '291', '293']): # IMU 2018
 
                 # add 1 to show that a file was present
                 num_files_present += 1
@@ -196,20 +198,23 @@ for site_id in site_ids:
 
                 # Get full file paths for the day and yesterday's (yest) MO data and which model the forecast came from
                 if yest < dt.datetime(2018, 1, 1):
-                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_old_style(yest)
+                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_old_style(yest, base_dir)
                 else:
-                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_new_style(yest)
+                    yest_filepaths, yest_mod, yest_Z, yest_file_exist = lcu.mo_create_filename_new_style(yest, base_dir)
 
                 if day < dt.datetime(2018, 1, 1):
-                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_old_style(day, set_Z=yest_Z)
+                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_old_style(day, base_dir, set_Z=yest_Z)
                 else:
-                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_new_style(day, set_Z=yest_Z)
+                    day_filepaths, day_mod, day_Z, day_file_exist = lcu.mo_create_filename_new_style(day, base_dir, set_Z=yest_Z)
 
                 # if both day's data exist, apply water vapour correction, else set backscatter to nan
                 if yest_file_exist & day_file_exist:
+
                     # Calculate and apply transmissivity to multiple scattering, corrected backscatter data
                     transmission_wv = lcu.mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod,
-                                       day_mod, day, yest, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
+                                      day_mod, day, yest, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
+
+                        
                     beta_arr_wv = beta_arr * (1.0 / np.transpose(transmission_wv))
 
 
@@ -247,12 +252,10 @@ for site_id in site_ids:
 
                     # Calculate mode and mean
                     Cal_hist, no_of_profs = lcu.get_counts(Step2_S)  # Histogram of filtered S
-                    no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev, dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = lcu.S_mode_mean(
-                    Step2_S, Cal_hist)
+                    no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev, dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = lcu.S_mode_mean(Step2_S, Cal_hist)
 
                     Cal_hist_wv, no_of_profs_wv = lcu.get_counts(Step2_S_wv)  # Histogram of filtered S
-                    no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = lcu.S_mode_mean(
-                    Step2_S_wv, Cal_hist_wv)
+                    no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = lcu.S_mode_mean(Step2_S_wv, Cal_hist_wv)
 
 
                     ## Append statistics for each
@@ -317,7 +320,7 @@ for site_id in site_ids:
         if num_files_present > 0:
             # save the year's data as a netCDF file in the ANNUAL folder
             lcu.netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
-                                        site_id, site, year)
+                                        site_id, site, year, base_dir + os.sep)
 
 
 
