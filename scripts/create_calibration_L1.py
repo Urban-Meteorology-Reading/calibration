@@ -11,6 +11,17 @@ Data needed:
 - L1 BSC files (UNSMOOTHED attenuated backscatter from ceilometers)
 - Met Office NWP forecast files (water vapour correction: requiring, specific humidity, pressure and temperature)
 
+ what to do to calibrate more data
+L1
+ 1. make sure MO NWP water vapour files are present on the cluster
+ 2. change site_id and year below
+ 3. run for each site (IMU has issues on some days - known bug)
+L2
+ 4. download CCW30 and CAL files for year AND neighbouring years if possible
+ 5. adjust the calibration_periods file with updates on firmware, hardware or cleaning
+ 6. ncview the L1 CAL files mode_wv to check if there are any sudden changes
+ 7. create a new 'regime' below to determine how the interpolated calibration will be estimated (block avg, trans, etc)
+
 Created by Elliott Warren Thurs 08/03/2018
 Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 """
@@ -21,45 +32,38 @@ Based heavily on CloudCal_filt_VaisTemp_LUMO.py by Emma Hopkin
 # ----------------
 import os
 import sys
-# append dir containing lcu utility library
-sys.path.append(os.path.join(os.environ['USERPROFILE'], 'Documents', 'ceilometer_calibration', 'utils'))
-#sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
-import LUMO_calibration_Utils as lcu
-
 import numpy as np
 import datetime as dt
+import ast
 
-# what to do to calibrate more data
-# L1
-# 1. make sure MO NWP water vapour files are present on the cluster
-# 2. change site_id and year below
-# 3. run for each site (IMU has issues on some days - known bug)
-# L2
-# 4. download CCW30 and CAL files for year AND neighbouring years if possible
-# 5. adjust the calibration_periods file with updates on firmware, hardware or cleaning
-# 6. ncview the L1 CAL files mode_wv to check if there are any sudden changes
-# 7. create a new 'regime' below to determine how the interpolated calibration will be estimated (block avg, trans, etc)
+#read in cli's
+# proramme dir
+prog_dir = sys.argv[1]
+# base directory for data (MM_DAILYDATA or euivalent)
+base_dir = sys.argv[2]
+# years to process
+yrs = sys.argv[3]
+#sites to process
+s_ids = sys.argv[4]
+
+# append dir containing lcu utility library
+sys.path.append(os.path.join(prog_dir, 'utils'))
+import LUMO_calibration_Utils as lcu
 
 # ----------------------------
 # Setup
 # ----------------------------
 
 # ceilometers to loop through (full ceilometer ID)
-#site_ids = ['CL31-C_MR'] # test with 'new' style
-site_ids = ['CL31-A_IMU']
-#site_ids = ['CL31-A_KSS45W', 'CL31-A_IMU', 'CL31-B_RGS', 'CL31-C_MR', 'CL31-D_NK', 'CL31-D_SWT', 'CL31-E_NK']
+site_ids = s_ids.split(',')
 
 # years to loop through [list]
-# years = [2016, 2017, 2018]
-years = [2018]
+years = [int(i) for i in yrs.split(',')]
 
 # settings to tune calibration
 ratio_filt = 0.05
 maxB_filt = -10  #set high so that this filter is no longer used
 cont_profs = 5  #number of continuous profiles required for calibration (must be odd no.)
-
-# base directory for files (MM_DAILYDATA equivalent)
-base_dir = os.path.join('Z:' + os.sep, 'Tier_raw')
 
 # loop through site ids
 for site_id in site_ids:
@@ -74,10 +78,8 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 10, 21)  # comparing my modes to EH modes
+        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
         end_date = dt.datetime(year, 12, 31)
-        #date_range = lcu.date_range(dt.datetime(2015, 2, 4), dt.datetime(2015, 2, 4), 1, 'day') # old style test day
-        #date_range = lcu.date_range(dt.datetime(2018, 2, 05), dt.datetime(2018, 2, 05), 1, 'day') # new style test day
         date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
@@ -159,9 +161,14 @@ for site_id in site_ids:
             bsc_filepath = datadir_bsc + ceil_id+'_BSC_'+site+'_'+day.strftime('%Y%j')+'_15sec.nc'
 
             # check if file exists
-            #if os.path.isfile(bsc_filepath) == True:
-            # if (os.path.isfile(bsc_filepath) == True) & (doy not in ['041', '230', '249', '255', '257', '261', '268', '275']): # IMU 2017
-            if (os.path.isfile(bsc_filepath) == True) & (doy not in ['039', '099', '109', '135', '198', '287', '288', '291', '293']): # IMU 2018
+            if os.path.isfile(bsc_filepath) == True:
+                
+                # manaully skip bad IMU days 
+                if site == 'IMU':
+                    if year == 2018 and (doy in ['039', '099', '109', '135', '198', '287', '288', '291', '293']):
+                        continue
+                    elif year == 2017 and (doy in ['041', '230', '249', '255', '257', '261', '268', '275']):
+                        continue
 
                 # add 1 to show that a file was present
                 num_files_present += 1
@@ -321,26 +328,6 @@ for site_id in site_ids:
             # save the year's data as a netCDF file in the ANNUAL folder
             lcu.netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profile_total, date_range_netcdf,
                                         site_id, site, year, base_dir + os.sep)
-
-
-
-# # quick compare of the old calibrated data and the ones made by this script
-# import matplotlib.pyplot as plt
-# plt.figure()
-# plt.plot_date(c_wv_old_kss45w['dates'][:20], c_wv_old_kss45w['c_wv'][:20], label='old modes (EH)')
-# plt.plot_date(date_range, C_modes_wv, label='new modes (EW)')
-# plt.plot_date(date_range, C_medians, label='new median no wv')
-# plt.plot_date(date_range, C_medians_wv, label='new med')
-# plt.plot_date(date_range, C_stdevs_wv, label='new stdev')
-# plt.legend()
-
-
-# date_range[4]
-# C_modes_wv[4]
-#vs
-# A_KSS45W.Dates[1410]
-# A_KSS45W.C_modes_wv[1410]
-
 
 
 print 'END PROGRAM'
