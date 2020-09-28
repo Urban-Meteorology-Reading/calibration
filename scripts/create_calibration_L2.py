@@ -7,20 +7,27 @@ Created on 15/05/17 by EW
 
 import sys
 import os
-# append dir containing lcu utility library
-sys.path.append(os.path.join(os.environ['USERPROFILE'], 'Documents', 'ceilometer_calibration', 'utils'))
-
-#sys.path.append('C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/utils')
-import LUMO_calibration_Utils as lcu
-
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.dates import DateFormatter
-
 import numpy as np
 import datetime as dt
 import pickle
 
+#read in cli's
+# proramme dir
+prog_dir = sys.argv[1]
+# base directory for data (MM_DAILYDATA or euivalent)
+base_dir = sys.argv[2]
+# years to process
+yrs = sys.argv[3]
+#sites to process
+s_ids = sys.argv[4]
+
+# append dir containing lcu, eu and ceil utility libraries
+sys.path.append(os.path.join(prog_dir, 'utils'))
+
+import LUMO_calibration_Utils as lcu
 import ellUtils as eu
 import ceilUtils as ceil
 
@@ -775,75 +782,5 @@ if __name__ == '__main__':
         plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=False)
         plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=True)
 
-        # # check out a specif period
-        # startDay = dt.datetime(2017,01,01)
-        # endDay = dt.datetime(2017,12,31)
-        # scatter_window_c_period(window_trans_daily, site, savedir, startDay, endDay)
-
-        # # convert num samples to number of samples by hour (2 hours)
-        # window_trans_daily['sample_hr'] = window_trans_daily['samples']/240.0
-        #
-        # # finding out what happened on those dates at the end of KSS45W
-        # idx = np.where(window_trans_daily['c_wv'] > 3.5)
-        # np.array(window_trans_daily['c_wv'])[np.where(window_trans_daily['c_wv'] > 3.5)]
-        # np.where(np.array(window_trans_daily['time']) > dt.date(2016, 3, 1))
-        #
-        #
-        # mid_idx = np.where((np.array(window_trans_daily['time']) > dt.date(2015, 2, 24)) &
-        #          (np.array(window_trans_daily['time']) < dt.date(2015, 8, 24)))
-        # np.sum(~np.isnan(window_trans_daily['c_wv'][mid_idx]))
-        #
-        # # plt.scatter(np.array(window_trans_daily['time'])[mid_idx], window_trans_daily['c_wv'][mid_idx])
-        #
-        # early_idx = np.where((np.array(window_trans_daily['time']) < dt.date(2015, 4, 16)))
-        # clip_early = {}
-        # for key, value in window_trans_daily.iteritems():
-        #     clip_early[key] = np.array(value)[early_idx]
-        # # scatter_c_sample_period(clip, site, savedir, dt.date(2015, 2, 24), dt.date(2015, 8, 24))
-        # scatter_window_c_period(clip_early, site, savedir, dt.date(2015, 2, 5), dt.date(2015, 4, 16))
-        #
-        # late_idx = np.where((np.array(window_trans_daily['time']) > dt.date(2015, 4, 16)))
-        # clip_late = {}
-        # for key, value in window_trans_daily.iteritems():
-        #     clip_late[key] = np.array(value)[late_idx]
-        # # scatter_c_sample_period(clip, site, savedir, dt.date(2015, 2, 24), dt.date(2015, 8, 24))
-        # scatter_window_c_period(clip_late, site, savedir, dt.date(2015, 4, 16), dt.date(2016, 12, 31))
-        #
-        # # d = [i.strftime('%Y%j') for i in np.array(window_trans_daily['time'])[v]]
-        # scatter_c_sample_period(window_trans_daily_period, site, savedir, startDay, endDay)
-
-
-        # very quick plot histogram of sample size
-        #plot_hist(window_trans_daily)
-
-        # plot data for each period separately
-        #plot_period(periods, window_trans_daily, site, savedir)
-        # remove transmission enteries in periods
-        # find all NONE transmission enteries
-        # idx = np.where(np.array(periods['Type']) != 'Transmission')[0]
-
-        #plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, clear_days)
-
-        # ----------------
-        # moving average the data
-        #ma_7 = eu.moving_average(calibration, 7)
-        #ma_10 = eu.moving_average(calibration, 10)
-        #ma_30 = eu.moving_average(calibration, 30)
-        #
-        # plot the smoothed data
-        # plot_smooth(dates, calibration, ma_7, ma_10, ma_30)
-        # ----------------
-
-        # time-series point plot of calibration, window trans and pulse energy.
-        # plot_cal_wind_pulse_timeseries(calib_dates, calib_raw, window_trans, pulse, savedir, site, clear_days)
-
-       # plot_cal_wind_pulse_timeseries(window_trans_daily, savedir, site, clear_days)
-
-        # scatter all the data for a site. Max daily window trans verses calibration coeff
-        #scatter_window_c_all(window_trans_daily, site, savedir)
-
-        #scatter_window_c_all_type(window_trans_daily, periods, site, savedir)
-
-        plt.close('all')
 
     print 'END PROGRAM'

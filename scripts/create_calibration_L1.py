@@ -56,10 +56,10 @@ import LUMO_calibration_Utils as lcu
 
 # ceilometers to loop through (full ceilometer ID)
 site_ids = s_ids.split(',')
-
+print(site_ids)
 # years to loop through [list]
 years = [int(i) for i in yrs.split(',')]
-
+print(years)
 # settings to tune calibration
 ratio_filt = 0.05
 maxB_filt = -10  #set high so that this filter is no longer used
@@ -153,13 +153,12 @@ for site_id in site_ids:
             # ----------------------------
 
             # find directory name for bsc data
-            #datadir_bsc = os.environ['MM_DAILYDATA']+'/data/'+str(year)+'/London/L1/'+site+'/DAY/' + doy + '/'
             datadir_bsc = os.path.join(base_dir, 'data', str(year),'London', 'L1', site, 'DAY', doy) + os.sep
 
             # Note: L0 BSC heights are corrected for height above ground
             #       L1 BSC heights are NOT corrected and are therefore just the range...
-            bsc_filepath = datadir_bsc + ceil_id+'_BSC_'+site+'_'+day.strftime('%Y%j')+'_15sec.nc'
-
+            bsc_filepath = os.path.join(datadir_bsc, ceil_id+'_BSC_'+site+'_'+day.strftime('%Y%j')+'_15sec.nc')
+            print(bsc_filepath)
             # check if file exists
             if os.path.isfile(bsc_filepath) == True:
                 
