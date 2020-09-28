@@ -12,6 +12,7 @@ import datetime as dt
 import operator
 from scipy import stats
 
+############################ L1 Utils ############################
 
 # Reading ------------------------------------------------------------
 
@@ -729,44 +730,6 @@ def get_counts(variable):
         counts = 0
     return (counts, len(vartoplot))
 
-def date_range(start_date, end_date, increment, period):
-
-    """
-    Create a range of datetime dates
-
-    # start_date is a datetime variable
-    # end_date is a datetime variable
-    # increment is the time e.g. 10, 20, 100
-    # period is the time string e.g. 'seconds','minutes', 'days'
-
-    :param start_date:
-    :param end_date:
-    :param increment:
-    :param period:
-    :return:
-
-    period is the plural of the time period e.g. days and not day, minuts and not minute. If the singular is given,
-    the code will replace it
-    """
-
-    # replace period string with plural, if it was singlar
-    if period == 'day':
-        period = 'days'
-    elif period == 'minute':
-        period = 'minutes'
-    elif period == 'second':
-        period = 'seconds'
-
-    from dateutil.relativedelta import relativedelta
-
-    result = []
-    nxt = start_date
-    delta = relativedelta(**{period:increment})
-    while nxt <= end_date:
-        result.append(nxt)
-        nxt += delta
-    return np.array(result)
-
 ## Filtering
 
 def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
@@ -1198,6 +1161,173 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     return
 
+############################ L2 Utils ############################
+
+# Read
+def read_periods(perioddatadir, site):
+
+    """ Read in ceilometer period data, e.g. firmware, hardware, window transmission and pulse changes"""
+
+    datapath = perioddatadir + 'ceilometer_periods_' + site + '.csv'
+    # read in ceilometer periods
+    # periods = np.genfromtxt(datapath, delimiter=',')
+    periods_raw = csv_read(datapath)
+
+    # sort data out into dictionary
+    periods = {}
+    for i in np.arange(len(periods_raw[0])):
+        periods[periods_raw[0][i]] = [j[i] for j in periods_raw[1:]]
+
+    # convert date strings into datetimes
+    periods['Date'] = [dt.datetime.strptime(d, '%d/%m/%Y') for d in periods['Date']]
+
+    return periods
+
+# process
+
+def remove_events(periods, window_trans_daily):
+
+    # remove days in window_trans_daily when events happened (firmware change, window cleaning etc)
+    period_event_days = np.array([i.date() for i in periods['Date']])
+
+    for day in period_event_days:
+        idx = np.where(np.array(window_trans_daily['time']) == day)
+
+        # turn daily data into nan as it is unreliable
+        for key in window_trans_daily.iterkeys():
+            if key != 'time':
+                window_trans_daily[key][idx] = np.nan
+
+    return window_trans_daily
+
+def calc_daily_window_trans(window_trans, calib_dates_days, calib):
+
+    """
+    Calculate the daily maximum window transmission, and pair it with the calibration coefficient that factors in
+    water vapour.
+    :param window_trans:
+    :param calib_dates_days:
+    :param calib_raw:
+    :return:
+    """
+    # find all unique days in window_trans time
+    # loop through days
+    # find all dates with that day
+    # max(c) and store
+
+    dayMin = window_trans['time'][0].date()
+    dayMax = window_trans['time'][-1].date()
+    # np.array([i.date() for i in window_trans['time']])
+
+    window_trans_dates = np.array([i.date() for i in window_trans['time']])
+
+    daysRange = date_range(dayMin, dayMax, 1, 'days')
+    window_trans_daily = {'time': daysRange,
+                          'max_window': np.empty(len(daysRange)), 'avg_window': np.empty(len(daysRange)),
+                          'c_wv': np.empty(len(daysRange)), 'samples': np.empty(len(daysRange))}
+    window_trans_daily['c_wv'][:] = np.nan
+    window_trans_daily['max_window'][:] = np.nan
+    window_trans_daily['avg_window'][:] = np.nan
+    window_trans_daily['samples'][:] = np.nan
+
+    for day, dayIdx in zip(daysRange, np.arange(len(daysRange))):
+        print(day)
+        # idx for all days on this day
+        winIdx = np.where(window_trans_dates == day)
+        #ipdb.set_trace()
+        # store maximum window transmission for the day
+        if winIdx[0].size != 0:
+            window_trans_daily['max_window'][dayIdx] = np.nanmax(window_trans['transmission'][winIdx])
+            window_trans_daily['avg_window'][dayIdx] = np.nanmean(window_trans['transmission'][winIdx])
+
+        # get c
+        cIdx = np.where(calib_dates_days == day)
+
+        # store c for the day
+        if cIdx[0].size != 0:
+            window_trans_daily['c_wv'][dayIdx] = calib['CAL_mode_wv'][cIdx]
+
+
+        # get c
+        sIdx = np.where(calib_dates_days == day)
+
+        # store total number of profiles for the day
+        if sIdx[0].size != 0:
+            window_trans_daily['samples'][dayIdx] = calib['profile_total'][sIdx]
+
+
+    return window_trans_daily
+
+def process_calibration_for_all_days(window_trans_daily, regimes, site):
+
+    """
+    Create the processed calibration data, which fills in missing days. Filling type depends
+    on the 'regime', whether it should be a simple block average, fit over time or a regression fit
+    against window transmission
+
+    :param window_trans_daily:
+    :param regimes:
+    :param site:
+    :return:
+    """
+
+    window_trans_daily['c_pro'] = np.empty(len(window_trans_daily['time']))
+    window_trans_daily['c_pro'][:] = np.nan
+
+    # fill calib_pro ready for processed values
+    # days = eu.date_range(dt.datetime(2015, 2, 5), dt.datetime(2016, 12, 31), 1, 'days')
+    # calib_pro[site] = {'time': np.array([i.date() for i in days]),
+    #                    'c_pro': np.empty(len(days))}
+    # calib_pro[site]['c_pro'][:] = np.nan
+
+    # create the processed calibration coeffs
+    for reg, values in regimes[site].iteritems():
+        print(reg)
+        #check if start date of period is after end date of time or start date of time before start of period
+        if min(window_trans_daily['time']) > values[1] or max(window_trans_daily['time']) < values[0]:
+            print('No data within this period')
+            continue
+            
+        # find matching dates to process over
+        whole_idx = np.where((np.array(window_trans_daily['time']) > values[0]) &
+                             (np.array(window_trans_daily['time']) < values[1]))
+        
+        
+        if values[2] == 'time':
+            # can do this with [x] as days are equally spaced
+            x = whole_idx[0]
+            y = window_trans_daily['c_wv'][whole_idx]
+            days = np.array(window_trans_daily['time'])[whole_idx]
+
+            idx_i = np.where(~np.isnan(x) & ~np.isnan(y))
+
+            m, b = np.polyfit(x[idx_i], y[idx_i], 1)
+
+            for x_i in whole_idx:
+                window_trans_daily['c_pro'][x_i] = (m * x_i) + b
+
+        # RGS and NK_E
+        if values[2] == 'window_transmission':
+
+            # get data for this period
+            x = window_trans_daily['max_window'][whole_idx]
+            y = window_trans_daily['c_wv'][whole_idx]
+
+            # find data where neither value in the pair is nan
+            idx_i = np.where(~np.isnan(x) & ~np.isnan(y))
+
+            # find eq
+            m, b = np.polyfit(x[idx_i], y[idx_i], 1)
+
+            for x_i in whole_idx:
+                window_trans_daily['c_pro'][x_i] = (m * window_trans_daily['max_window'][x_i]) + b
+
+        if values[2] == 'block_avg':
+            window_trans_daily['c_pro'][whole_idx] = np.nanmean(window_trans_daily['c_wv'][whole_idx])
+
+
+    return window_trans_daily
+
 def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
 
     """
@@ -1256,3 +1386,276 @@ def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
     print ''
 
     return
+
+############################ from ellUtils.py ############################
+def date_range(start_date, end_date, increment, period):
+
+    """
+    # start_date is a datetime variable
+    # end_date is a datetime variable
+    # increment is the time e.g. 10, 20, 100
+    # period is the time string e.g. 'seconds','minutes', 'days'
+    :param start_date:
+    :param end_date:
+    :param increment:
+    :param period:
+    :return:
+    period is the plural of the time period e.g. days and not day, minuts and not minute. If the singular is given,
+    the code will replace it
+    """
+
+    # replace period string with plural, if it was singlar
+    # function cannot do hours so convert it to minutes
+    if period == 'day':
+        period = 'days'
+    elif period == 'minute':
+        period = 'minutes'
+    elif period == 'second':
+        period = 'seconds'
+    elif (period == 'hour') | (period == 'hours'):
+        period = 'minutes'
+        increment *= 60.0
+
+    from dateutil.relativedelta import relativedelta
+
+    result = []
+    nxt = start_date
+    delta = relativedelta(**{period:increment})
+    while nxt <= end_date:
+        result.append(nxt)
+        nxt += delta
+    return np.array(result)
+
+
+def csv_read(datapath):
+
+    """
+    Simple csv reader that puts data into lists of lists.
+    :param datapath:
+    :return: list of lists
+    codecs helps prevent UTF-8 codes from emerging
+    """
+
+    from csv import reader
+    import codecs
+
+    # with open(datapath, 'r') as dest_f:
+    with codecs.open(datapath, "r", encoding="utf-8-sig") as dest_f:
+        data_iter = reader(dest_f,
+                               delimiter=',',
+                               quotechar='"')
+
+        return [data for data in data_iter if data[0] != '']
+    
+def netCDF_read(datapaths,vars='',timezone='UTC', returnRawTime=False, skip_missing_files=False, **kwargs):
+    """
+    Read in any variables for any netcdf. If vars are not given, read in all the data
+    :param datapath (list of datapaths):
+    :param vars: (list of strings)
+    kwargs
+    :param height: instrument height
+    :return: raw (dictionary)
+    """
+
+    from netCDF4 import Dataset
+    #from netCDF4 import MFDataset
+    import numpy as np
+    import warnings
+    from os.path import isfile
+    from copy import deepcopy
+    import os
+
+    # data prep
+    # --------------
+
+    # if just a single string given, put it into a single element list
+    if type(vars) != list:
+        try:
+            vars = [vars]
+        except TypeError:
+            print 'Variables need to be a list of strings or '' to read all variables'
+
+    if type(datapaths) != list:
+        try:
+            datapaths = [datapaths]
+        except TypeError:
+            print 'Datapaths need to be either a singular or list of strings'
+
+    # find first existing datapath in [datapaths]
+    first_file = []
+    for i, d in enumerate(datapaths):
+        if first_file == []:
+            if isfile(d):
+                first_file = d
+                datapaths = datapaths[i:]
+
+    # if no specific variables were given, find all the variable names within the first netCDF file
+    if vars[0] == '':
+        vars = get_all_varaible_names(first_file)
+
+    # Read
+    # -----------
+
+    # define array
+    raw = {}
+
+    for j, d in enumerate(datapaths):
+
+        # debugging code
+        #if j in range(0, 3000, 100):
+        #   print d
+        # print d
+
+        # check file ecists. Raise error if all files need to be present (skip_missing_files == False)
+        if (os.path.isfile(d) == False) and (skip_missing_files == False):
+            raise ValueError(d + ' does not exist!')
+        elif (os.path.isfile(d) == True):
+            datafile = Dataset(d, 'r')
+
+            # if first file and raw hasn't been populated
+            if raw == {}:
+
+                # Extract data and remove single dimension entries at the same time
+                for i in vars:
+                    raw[i] = np.squeeze(datafile.variables[i][:])
+
+                    # if masked array, convert to np.array
+                    if isinstance(raw[i],np.ma.MaskedArray):
+                        try:
+                            mask = raw[i].mask # bool (True = bad/masked data)
+                            raw[i] = np.asarray(raw[i], dtype='float32')
+                            raw[i][mask] = np.nan
+                        except:
+                            warnings.warn('cannot convert '+i+'from masked to numpy!')
+
+
+                # get time units for time conversion
+                if 'time' in raw:
+                    tstr = datafile.variables['time'].units
+                    raw['protime'] = eu_time_to_datetime(tstr, raw['time'])
+                elif 'forecast_time' in raw:
+                    tstr = datafile.variables['forecast_time'].units
+                    raw['protime'] = eu_time_to_datetime(tstr, raw['forecast_time'])
+
+            # not the first file, append to existing array
+            else:
+
+                # Extract data and remove single dimension entries at the same time
+                for i in vars:
+
+                    var_data = np.squeeze(datafile.variables[i][:])
+
+                    # if masked array, convert to np.array
+                    if isinstance(var_data, np.ma.MaskedArray):
+                        try:
+                            var_data = var_data.filled(np.nan)
+                            mask = var_data.mask # bool (True = bad/masked data)
+                            var_data = np.asarray(var_data, dtype='float32')
+                            var_data[mask] = np.nan
+                        except:
+                            warnings.warn('cannot convert ' + i + 'from masked to numpy!')
+
+                    raw[i] = np.append(raw[i], var_data)
+
+
+                if 'time' in raw:
+                    todayRawTime = np.squeeze(datafile.variables['time'][:])
+                    tstr = datafile.variables['time'].units
+                    # append to stored 'protime' after converting just todays time
+                    raw['protime'] = np.append(raw['protime'], eu_time_to_datetime(tstr, todayRawTime))
+                elif 'forecast_time' in raw:
+                    todayRawTime = np.squeeze(datafile.variables['forecast_time'][:])
+                    tstr = datafile.variables['forecast_time'].units
+                    raw['protime'] = np.append(raw['protime'], eu_time_to_datetime(tstr, todayRawTime))
+
+    # Sort Time names out
+    # --------------------
+
+    # allow 'rawtime' to be the unchanged time
+    # make 'time' the processed time
+    if 'time' in raw:
+        raw['rawtime'] = deepcopy(raw['time'])
+        raw['time'] = np.array(deepcopy(raw['protime']))
+        #raw['time'] = np.array([i.replace(tzinfo=tz.gettz('UTC')) for i in raw['time']])
+        del raw['protime']
+    elif 'forecast_time' in raw:
+        raw['rawtime'] = deepcopy(raw['forecast_time'])
+        raw['time'] = np.array(deepcopy(raw['protime']))
+        del raw['protime']
+
+    if returnRawTime == False:
+        if 'rawtime' in raw:
+            del raw['rawtime']
+
+    # close file
+    datafile.close()
+
+    return raw
+
+def get_all_varaible_names(datapath):
+    """
+    get all variable names from netCDF file
+    :param datapaths (list of str):
+    :return: all_vars (list of str): all variable names
+    """
+
+    from netCDF4 import Dataset
+
+    #try:
+    print datapath
+    datafile = Dataset(datapath, 'r')
+    #except:
+    #print 'file not present/issue with file: '+datapath
+    
+    all_vars = datafile.variables
+    # convert from unicode to strings
+    all_vars = [str(i) for i in all_vars]
+    datafile.close()
+
+    return all_vars
+
+def eu_time_to_datetime(tstr, timeRaw):
+
+    """
+    version from ellUtils
+    
+    Convert 'time since:... and an array/list of times into a list of datetimes
+    :param tstr: string along the lines of 'secs/mins/hours since ........'
+    :param timeRaw:
+    :return: list of processed times
+    """
+
+    import datetime as dt
+    
+    # sort out times and turn into datetimes
+    # tstr = datafile.variables['time'].units
+    tstr = tstr.replace('-', ' ')
+    tstr = tstr.split(' ')
+    
+    # Datetime
+    # ---------------
+    # create list of datetimes for export
+    # start date in netCDF file
+    start = dt.datetime(int(tstr[2]), int(tstr[3]), int(tstr[4]))
+
+    # get delta times from the start date
+    # time: time in minutes since the start time (taken from netCDF file)
+    if tstr[0] == 'seconds':
+        delta = [dt.timedelta(seconds = int(timeRaw[i])) for i in np.arange(0, timeRaw.size)] # len(timeRaw)
+
+    elif tstr[0] == 'minutes':
+        delta = [dt.timedelta(seconds=timeRaw[i]*60) for i in np.arange(0, timeRaw.size)]
+
+    elif tstr[0] == 'hours':
+        # delta = [dt.timedelta(seconds=timeRaw[i]*3600) for i in np.arange(0, timeRaw.size)]
+        delta = [dt.timedelta(seconds=t*3600) for t in timeRaw]
+
+    elif tstr[0] == 'days':
+        delta = [dt.timedelta(days=int(timeRaw[i])) for i in np.arange(0, timeRaw.size)]
+
+
+    if 'delta' in locals():
+        return [start + delta[i] for i in np.arange(0, timeRaw.size)]
+    else:
+        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
+        return
