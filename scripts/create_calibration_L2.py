@@ -30,10 +30,10 @@ import LUMO_calibration_Utils as lcu
 # ==============================================================================
 
 # ceilometers to loop through (full ceilometer ID)
-site_ids = s_ids.split(',')
+site_ids = s_ids.split(';')
 print(site_ids)
 # years to loop through [list]
-years = [int(i) for i in yrs.split(',')]
+years = [int(i) for i in yrs.split(';')]
 print(years)
 
 # =============================================================================
