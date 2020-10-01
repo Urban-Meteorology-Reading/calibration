@@ -7,6 +7,7 @@ LUMO_calibration_Utils created by Elliott Thurs 08/03/2018
 """
 
 from netCDF4 import Dataset
+import os
 import numpy as np
 import datetime as dt
 import operator
@@ -1161,6 +1162,110 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     return
 
+def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ratio_filt):
+    """
+    main function to create L1 calibration
+    """
+    
+    # read in L1 unscmoothed backscatter data (do not correct for SNR)
+    bsc_data, _ = netCDF_read_BSC(bsc_filepath, var_type='beta', SNRcorrect=False)
+    # transpose the backscatter for EH functions
+    bsc_data['backscatter'] = np.transpose(bsc_data['backscatter'])
+
+    # create range in [km]
+    bsc_data['range_km'] = bsc_data['range'] / 1000.0
+
+    # ------------------------------
+    # Apply scattering correction
+    # ------------------------------
+
+    # find the cloud based on the max backscatter return, and set the backscatter at all other heights to nan
+    cloud_beta = find_cloud(bsc_data['backscatter'])
+
+    # apply the multiple scattering correction for the backscatter that was not the cloud
+    Scat_correct_b = scatter_correct_Vais(cloud_beta, bsc_data['range_km'])
+
+    # apply the multiple scattering to correct the non-cloud backscatter,
+    #    and merge the array with the cloud backscatter array
+    beta_arr = corr_beta(Scat_correct_b, bsc_data['backscatter'])
+
+    # ----------------------------------------------
+    # Apply water vapour attenuation correction
+    # ----------------------------------------------
+
+    # get yesterday's time to get the right forecast file for the water vapour
+    yest = day - dt.timedelta(days=1)
+
+    # Get full file paths for the day and yesterday's (yest) MO data and which model the forecast came from
+    if yest < dt.datetime(2018, 1, 1):
+        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_old_style(yest, base_dir)
+    else:
+        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_new_style(yest, base_dir)
+
+    if day < dt.datetime(2018, 1, 1):
+        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_old_style(day, base_dir, set_Z=yest_Z)
+    else:
+        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_new_style(day, base_dir, set_Z=yest_Z)
+
+    # if both day's data exist, apply water vapour correction, else set backscatter to nan
+    if yest_file_exist & day_file_exist:
+
+        # Calculate and apply transmissivity to multiple scattering, corrected backscatter data
+        transmission_wv = mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod,
+                          day_mod, day, yest, bsc_data['range'], bsc_data['time'], bsc_data['backscatter'])
+
+            
+        beta_arr_wv = beta_arr * (1.0 / np.transpose(transmission_wv))
+
+
+        # ----------------------------------------------
+        # Calculate calibration
+        # ----------------------------------------------
+
+        ## 1. Calculate lidar ratio (S) without water vapour correction
+
+        # calculate S, including transmission correction (on non water vapour corrected profiles)
+        S = lidar_ratio(beta_arr, bsc_data['range_km'])
+
+        # Remove profiles unsuitable for calibration
+        ## Apply S Filters
+        Step1_S, profile_B_ratio = step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
+        Step2_S = step2_Sfilt(Step1_S, 10, cont_profs)  # range in S = 10%
+        # remove neg values caused by neg noise
+        Step2_S[Step2_S < 0] = np.nan
+
+
+        ## 2. Calculate S with water vapour correction
+
+        # calculate lidar ratio for the water vapour corrected profiles
+        S_wv = lidar_ratio(beta_arr_wv, bsc_data['range_km'])
+
+        # filter out bad profiles, unsuitable for calibrations
+        Step1_S_wv, profile_B_ratio_wv = step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S_wv)  # aerosol ratio = 5%
+        Step2_S_wv = step2_Sfilt(Step1_S_wv, 10, cont_profs)
+        # remove neg values caused by neg noise
+        Step2_S_wv[Step2_S_wv < 0] = np.nan
+
+        # -----------------
+        # Statistics
+        # -----------------
+
+        # Calculate mode and mean
+        Cal_hist, no_of_profs = get_counts(Step2_S)  # Histogram of filtered S
+        no_in_peak, day_mode, day_mean, day_median, day_sem, day_stdev, dayC_mode, dayC_median, dayC_stdev, dayCL_median, dayCL_stdev = S_mode_mean(Step2_S, Cal_hist)
+
+        Cal_hist_wv, no_of_profs_wv = get_counts(Step2_S_wv)  # Histogram of filtered S
+        no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = S_mode_mean(Step2_S_wv, Cal_hist_wv)
+        
+        return( [ dayC_mode_wv, dayC_median_wv, dayC_mode, dayC_median, no_of_profs] )
+    else:
+        #if MO or BSC file is missing
+        if all([os.path.exists(i) for i in yest_filepaths]) != True:
+            print 'yestfile: ' + str(yest_filepaths) + ' are missing!'
+        elif all([os.path.exists(i) for i in day_filepaths]) != True:
+            print 'dayfile: ' + str(day_filepaths) + ' is missing!'
+        return( [np.nan] * 5)
+    
 ############################ L2 Utils ############################
 
 # Read

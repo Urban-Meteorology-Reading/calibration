@@ -69,7 +69,8 @@ regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 9, 1), dt.date(2016, 4, 1), 'bl
            'CL31-D_NK': {'1': [dt.date(2011, 6, 5), dt.date(2012, 5, 1), 'block_avg'],
                          '2': [dt.date(2014, 1, 1), dt.date(2015, 5, 5), 'window_transmission'],
                          '3': [dt.date(2015, 5, 5), dt.date(2018, 12, 31), 'window_transmission']},
-           'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2020, 9, 28), 'window_transmission']},
+           'CL31-D_SWT': {'1': [dt.date(2017, 11, 10), dt.date(2017, 12, 31), 'time'],
+                          '2': [dt.date(2018, 1, 1), dt.date(2020, 9, 28), 'window_transmission']},
            'CL31-E_NK': {'1': [dt.date(2016, 7, 7), dt.date(2018, 12, 31), 'window_transmission']},
            'CL31-E_HOP' : {'1': [dt.date(2018, 12, 12), dt.date(2020, 9, 28), 'window_transmission']}}
 # regimes = {'CL31-A_KSS45W': {'1': [dt.date(2015, 2, 24), dt.date(2015, 6, 20), 'time'],
@@ -113,7 +114,7 @@ for site_id in site_ids:
     periods = lcu.read_periods(perioddatadir + os.sep, site_id)
     
     # read in all L1 calibration files
-    calib_filepaths = [os.path.join(base_dir, 'data', str(i), 'London', 'L1', site, 'ANNUAL', ceil_id +'_CAL_'+site+'_'+str(i)+'.nc') for i in years]
+    calib_filepaths = [os.path.join(base_dir, 'data', str(i), 'London', 'L1', site, 'ANNUAL', ceil_id +'_CAL_'+site+'_KB_'+str(i)+'.nc') for i in years]
     calib = lcu.netCDF_read(calib_filepaths)
     
     # save L2 calibration data (netCDF)
