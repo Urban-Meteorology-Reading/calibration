@@ -1439,12 +1439,16 @@ def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
     Save the year's L2 calibration data in a netCDF file.
 
     """
-
+    import os
+    
     # Create save file id (put CAL in the id)
     a = site_id.split('_')
     site_save_id = a[0] + '_CAL_' + a[1]
 
     # ncsavedir = '/data/its-tier2/micromet/data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
+    if os.path.exists(L2calsavedir) == False:
+        os.makedirs(L2calsavedir)
+    
     ncsavedir = L2calsavedir
 
     # get time index for this year's data
