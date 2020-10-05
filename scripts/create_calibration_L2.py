@@ -101,7 +101,7 @@ for site_id in site_ids:
     ceil_type = site_id.split('-')[0]
     site = site_id.split('_')[-1]
 
-    print '... Processing ' + site        
+    print( '... Processing ' + site   )     
 
     #define period dir         
     perioddatadir = os.path.join(prog_dir, 'ceilometer_periods')    
@@ -161,4 +161,4 @@ for site_id in site_ids:
         #plot_cal_vs_window_trans_timeseries(window_trans_daily, savedir, site_id, plot_trans=True)
 
 
-print 'END PROGRAM'
+print('END PROGRAM')

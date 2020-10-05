@@ -38,18 +38,18 @@ import ast
 
 #read in cli's
 # proramme dir
-#prog_dir = sys.argv[1]
-prog_dir = 'C:\\Users\\kitbe\\Documents\\ceilometer_calibration'
+prog_dir = sys.argv[1]
+#prog_dir = 'C:\\Users\\kitbe\\Documents\\ceilometer_calibration'
 # base directory for data (MM_DAILYDATA or euivalent)
-#base_dir = sys.argv[2]
-base_dir = 'Z:\\Tier_raw'
+base_dir = sys.argv[2]
+#base_dir = 'Z:\\Tier_raw'
 
 # years to process
-#yrs = sys.argv[3]
-yrs = '2018'
+yrs = sys.argv[3]
+#yrs = '2018'
 #sites to process
-#s_ids = sys.argv[4]
-s_ids = 'CL31-C_MR'
+s_ids = sys.argv[4]
+#s_ids = 'CL31-C_MR'
 
 # append dir containing lcu utility library
 sys.path.append(os.path.join(prog_dir, 'utils'))
@@ -85,7 +85,7 @@ for site_id in site_ids:
 
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 1, 5)  # comparing my modes to EH modes
+        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
         end_date = dt.datetime(year, 12, 31)
         date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
