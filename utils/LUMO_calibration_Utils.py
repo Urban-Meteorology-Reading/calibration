@@ -132,7 +132,7 @@ def mo_create_filename_new_style(main_day, base_dir, **kwargs):
 
             # create filename and check path existance
             filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
-                         for code in stash_codes.itervalues()]  # old style
+                         for code in stash_codes.values()]  # old style
             filepaths = [datadir_mo + i for i in filenames]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
             #   being used so it can safely fail the existance check outside of this function
@@ -153,7 +153,7 @@ def mo_create_filename_new_style(main_day, base_dir, **kwargs):
 
             # create filename and check path existance
             filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
-                         for code in stash_codes.itervalues()]  # old style
+                         for code in stash_codes.values()]  # old style
             filepaths = [datadir_mo + i for i in filenames]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
             #   being used so it can safely fail the existance check outside of this function
@@ -203,7 +203,7 @@ def time_to_datetime(tstr, timeRaw):
     if 'delta' in locals():
         return [start + delta[i] for i in np.arange(0, len(timeRaw))]
     else:
-        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
+        print('Raw time not in seconds, minutes, hours or days. No processed time created.')
         return
 
 #  yest_filepath, day_filepath, day, bsc_data['range'], bsc_data['time'], bsc_data['backscatter']
@@ -333,7 +333,7 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
 
         # find out which file belongs to which variable
         var_files = {}
-        for var, code in stash_codes.iteritems():
+        for var, code in stash_codes.items():
             loc = np.array([code in i for i in filepaths]) # find file location
             paired_file = np.array(filepaths)[loc] # find specific filepath
             var_files[var] = Dataset(paired_file[0]) # store the Dataset() object, for that variable, with it's name
@@ -385,7 +385,7 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
         data['wv_density'] = np.array(data['q']) * data['dry_air_density']
 
         file.close()
-        for var_file in var_files.itervalues():
+        for var_file in var_files.values():
             var_file.close()
 
         return data
@@ -449,7 +449,7 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
 
     # merge the data
     data = {}
-    for key in yest_data.iterkeys():
+    for key in yest_data.keys():
         if key == 'height':
             # just make a copy of it
             data['height'] = yest_data['height']
@@ -472,12 +472,12 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
     ####Interpolate model onto observation space#####
 
     WV_newgrid = np.zeros((len(data['pro_time']), (len(range_data))))
-    for i in xrange(len(WV_newgrid)):
+    for i in range(len(WV_newgrid)):
         WV_newgrid[i, :] = griddata(data['height'], ukv_density2[i, :], range_data, method='linear')
 
     ####Interpolate model onto observation time#####
     WV_obspace = np.zeros(np.shape(np.transpose(beta_data)))
-    for j in xrange(len(np.transpose(WV_obspace))):
+    for j in range(len(np.transpose(WV_obspace))):
         WV_obspace[:, j] = griddata(ukv_time, WV_newgrid[:, j], bsc_time_match, method='linear')
 
     ####Calculate Trransmissivity####
@@ -486,7 +486,7 @@ def mo_read_calc_wv_transmission(yest_filepaths, day_filepaths, yest_mod, day_mo
     ukv_transmissivity = np.zeros(np.shape(np.transpose(beta_data)))
     ukv_integral = np.zeros(np.shape(np.transpose(beta_data)))
 
-    for t in xrange(len(ukv_WV_Beta)):
+    for t in range(len(ukv_WV_Beta)):
         ukv_integral[t, :-1] = integrate.cumtrapz(WV_obspace[t, :], range_data)
         ukv_transmissivity[t, :] = 1 - 0.17 * (ukv_integral[t, :] * 0.1) ** 0.52
         # set last gate to last but one - not included in integral due to array size matching
@@ -598,7 +598,7 @@ def find_cloud(beta_data):
     """
 
     arr = np.copy(beta_data)
-    for i in xrange(len(np.transpose(arr))):
+    for i in range(len(np.transpose(arr))):
 
         index, value = max(enumerate(arr[:, i]), key=operator.itemgetter(1))
         loc_above = index + 15
@@ -665,10 +665,10 @@ def corr_beta(Scat_beta, beta_data):
     """
     s_cor_beta = np.copy(Scat_beta)
 
-    for prof in xrange(len(np.transpose(s_cor_beta))):
+    for prof in range(len(np.transpose(s_cor_beta))):
         index_n = np.isnan(Scat_beta[:, prof])
         thenans = np.where(index_n == True)
-        for locnan in xrange(len(thenans)):
+        for locnan in range(len(thenans)):
             s_cor_beta[(thenans[locnan]), prof] = beta_data[(thenans[locnan]), prof]
 
     return (s_cor_beta)
@@ -686,14 +686,14 @@ def lidar_ratio(Scat_correct_b, range_data):
     """
 
     gatesize = np.round((range_data[13]*1000 - range_data[12]*1000),3) #km to m
-    print 'GATESIZE = ', gatesize
+    print('GATESIZE = ', gatesize)
     GateMax = (np.where(range_data > 2400/1000.)[0][0])
     begin = (np.where(range_data > 10/1000.)[0][0])
 
     # Integrated from 0.2 - 2400km
     inc_beta = Scat_correct_b[begin:GateMax,:]      #betas between 0.2 - 2400km
     S = []
-    for i in xrange(len(np.transpose(inc_beta))):
+    for i in range(len(np.transpose(inc_beta))):
         peak, value = max(enumerate(inc_beta[:,i]), key=operator.itemgetter(1))
         B_aer_prof = ((sum(inc_beta[:(peak-8),i]))*gatesize)
         B_cloud_prof = ((sum(inc_beta[(peak-8):,i]))*gatesize)
@@ -807,9 +807,13 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
             G100m = (np.where(range_data > 100 / 1000.)[0][0])
             gatesize = np.round((range_data[13] * 1000 - range_data[12] * 1000), 3)
 
+            #print(np.max(beta_data[:, 3799]))
+            #print(beta_data[:, 3799])
+            
             inte_beta = []
             a = len(np.transpose(beta_data))
-            for prof in xrange(a):
+            for prof in range(a):
+                #print(np.where(beta_data[:, prof] == np.max(beta_data[:, prof])))
                 loc_belowCBH = np.where(beta_data[:, prof] == np.max(beta_data[:, prof]))[0][0]
                 loc = loc_belowCBH - G100m  # 100m below
 
@@ -837,7 +841,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
                 filt_out = filt_out + 1
             else:
                 pass
-        print 'ratio filtered out: ', filt_out
+        print('ratio filtered out: ', filt_out)
 
         return (ratiof_B, B_ratio)
 
@@ -864,7 +868,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
         ex2 = 0
         import operator
 
-        for i in xrange(len(np.transpose(beta_300f))):
+        for i in range(len(np.transpose(beta_300f))):
             profs_sort = np.append(beta_300f[:, i], a)
 
             index, value = max(enumerate(beta_300f[:, i]), key=operator.itemgetter(1))
@@ -877,7 +881,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
             else:
                 pass
 
-        print'300m above filtered out: ', ex2
+        print('300m above filtered out: ', ex2)
 
         return (beta_300f)
 
@@ -903,7 +907,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
         ex2 = 0
         import operator
 
-        for i in xrange(len(np.transpose(beta_300belf))):
+        for i in range(len(np.transpose(beta_300belf))):
             profs_sort = np.append(beta_300belf[:, i], a)
 
             index, value = max(enumerate(beta_300belf[:, i]), key=operator.itemgetter(1))
@@ -915,7 +919,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
                 ex2 = ex2 + 1
             else:
                 pass
-        print '300m below filtered out: ', ex2
+        print('300m below filtered out: ', ex2)
 
         return (beta_300belf)
 
@@ -939,14 +943,14 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
 
         ex = 0
         maxs = np.zeros(len(np.transpose(beta_maxf)))
-        for i in xrange(len(np.transpose(beta_maxf))):
+        for i in range(len(np.transpose(beta_maxf))):
             maxs[i] = np.max(beta_maxf[:, i])
             if np.max(log_beta[:, i]) < threshold:
                 beta_maxf[:, i] = np.nan
                 ex = ex + 1
             else:
                 pass
-        print 'MaxB filtered out: ', ex
+        print('MaxB filtered out: ', ex)
 
         return (maxs, beta_maxf)
 
@@ -971,7 +975,7 @@ def step1_filter(beta_data, range_data, maxB_val, ratio_val, S):
         Output: Filtered version of e.g. S (nans in place)
         """
 
-        print np.shape(S)
+        print(np.shape(S))
         filt_S = np.copy(S)
         for loc in range(len(loc_n)):
             filt_S[(loc_n[loc])] = np.nan
@@ -1030,50 +1034,50 @@ def S_mode_mean(Step2_S, Cal_hist):
     var = np.copy(Step2_S)
     peak = np.max(Cal_hist)
     if peak > 10.:
-        print '@@@@@@@@', peak, '@@@@@@@'
+        print('@@@@@@@@', peak, '@@@@@@@')
         m = np.asarray(var)
 
         m[np.isnan(m)] = 0
         m = m[np.nonzero(m)]
         mean = np.mean(m)  ###mean
-        print 'calibration mean = ', mean
+        print('calibration mean = ', mean)
 
         stdev = np.std(m)
-        print 'std deviation = ', stdev
+        print('std deviation = ', stdev)
 
         sem = stats.sem(m)
-        print 'std error = ', sem
+        print('std error = ', sem)
 
         m2 = np.round((m.tolist()), 1)
         mode_arr = stats.mode(m2)
         mode = mode_arr[0][0]
-        print 'calibration mode = ', mode
+        print('calibration mode = ', mode)
 
         median = np.median(m)
-        print 'calibration median = ', median
+        print('calibration median = ', median)
 
         C_data = m / 18.8
 
         C_median = np.median(C_data)
-        print 'C median = ', C_median
+        print('C median = ', C_median)
 
         C_mode_arr = stats.mode(m2 / 18.8)
         C_mode = C_mode_arr[0][0]
-        print 'C mode = ', C_mode
+        print('C mode = ', C_mode)
 
         C_stdev = np.std(C_data)
-        print 'C std = ', C_stdev
+        print('C std = ', C_stdev)
 
         CL_data = 1. / (m / 18.8)
 
         CL_median = np.median(CL_data)
-        print 'CL median = ', CL_median
+        print('CL median = ', CL_median)
 
         CL_stdev = np.std(CL_data)
-        print 'CL std = ', CL_stdev
+        print('CL std = ', CL_stdev)
 
     else:
-        print '######', peak, '#####'
+        print('######', peak, '#####')
         mode = np.nan
         mean = np.nan
         median = np.nan
@@ -1127,7 +1131,7 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     # Create co-ordinate variables
     nc_time = ncfile.createVariable('time', np.float64, ('time',))
     nc_time[:] = date_range_netcdf  # days since 1st Jan of this year
-    nc_time.units = 'days since ' + dt.datetime(year, 1, 01).strftime('%Y-%m-%d %H:%M:%S')
+    nc_time.units = 'days since ' + dt.datetime(year, 1, 1).strftime('%Y-%m-%d %H:%M:%S')
 
     # Create main variables
     nc_cal_mode_wv = ncfile.createVariable('CAL_mode_wv', np.float64, ('time',))
@@ -1157,8 +1161,8 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     ncfile.close()
 
     # print status
-    print ncfilename + ' save successfully!'
-    print ''
+    print(ncfilename + ' save successfully!')
+    print('')
 
     return
 
@@ -1226,7 +1230,6 @@ def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ra
 
         # calculate S, including transmission correction (on non water vapour corrected profiles)
         S = lidar_ratio(beta_arr, bsc_data['range_km'])
-
         # Remove profiles unsuitable for calibration
         ## Apply S Filters
         Step1_S, profile_B_ratio = step1_filter(bsc_data['backscatter'], bsc_data['range_km'], maxB_filt, ratio_filt, S)  # aerosol ratio = 5%
@@ -1257,13 +1260,15 @@ def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ra
         Cal_hist_wv, no_of_profs_wv = get_counts(Step2_S_wv)  # Histogram of filtered S
         no_in_peak_wv, day_mode_wv, day_mean_wv, day_median_wv, day_sem_wv, day_stdev_wv, dayC_mode_wv, dayC_median_wv, dayC_stdev_wv, dayCL_median_wv, dayCL_stdev_wv = S_mode_mean(Step2_S_wv, Cal_hist_wv)
         
+        #import ipdb
+        #ipdb.set_trace()
         return( [ dayC_mode_wv, dayC_median_wv, dayC_mode, dayC_median, no_of_profs] )
     else:
         #if MO or BSC file is missing
         if all([os.path.exists(i) for i in yest_filepaths]) != True:
-            print 'yestfile: ' + str(yest_filepaths) + ' are missing!'
+            print('yestfile: ' + str(yest_filepaths) + ' are missing!')
         elif all([os.path.exists(i) for i in day_filepaths]) != True:
-            print 'dayfile: ' + str(day_filepaths) + ' is missing!'
+            print('dayfile: ' + str(day_filepaths) + ' is missing!')
         return( [np.nan] * 5)
     
 ############################ L2 Utils ############################
@@ -1299,7 +1304,7 @@ def remove_events(periods, window_trans_daily):
         idx = np.where(np.array(window_trans_daily['time']) == day)
 
         # turn daily data into nan as it is unreliable
-        for key in window_trans_daily.iterkeys():
+        for key in window_trans_daily.keys():
             if key != 'time':
                 window_trans_daily[key][idx] = np.nan
 
@@ -1386,7 +1391,7 @@ def process_calibration_for_all_days(window_trans_daily, regimes, site):
     # calib_pro[site]['c_pro'][:] = np.nan
 
     # create the processed calibration coeffs
-    for reg, values in regimes[site].iteritems():
+    for reg, values in regimes[site].items():
         print(reg)
         #check if start date of period is after end date of time or start date of time before start of period
         if min(window_trans_daily['time']) > values[1] or max(window_trans_daily['time']) < values[0]:
@@ -1456,7 +1461,7 @@ def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
     idx = np.where(idx == True)[0]
 
     # create list of days to save as time in the netCDF -> x days since...
-    time_deltas = [i - dt.date(year, 1, 01) for i in window_trans_daily['time'][idx]]
+    time_deltas = [i - dt.date(year, 1, 1) for i in window_trans_daily['time'][idx]]
     date_range_netcdf = np.array([i.days for i in time_deltas])
 
     # Create save filename
@@ -1471,7 +1476,7 @@ def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
     # Create co-ordinate variables
     nc_time = ncfile.createVariable('time', np.float64, ('time',))
     nc_time[:] = date_range_netcdf  # days since 1st Jan of this year
-    nc_time.units = 'days since ' + dt.datetime(year, 1, 01).strftime('%Y-%m-%d %H:%M:%S')
+    nc_time.units = 'days since ' + dt.datetime(year, 1, 1).strftime('%Y-%m-%d %H:%M:%S')
 
     # Create main variables
     nc_cal_c_pro = ncfile.createVariable('c_pro', np.float64, ('time',))
@@ -1491,8 +1496,8 @@ def netCDF_save_calibration_L2(window_trans_daily, site_id, year, L2calsavedir):
     ncfile.close()
 
     # print status
-    print ncfilename + ' save successfully!'
-    print ''
+    print( ncfilename + ' save successfully!')
+    print('')
 
     return
 
@@ -1582,13 +1587,13 @@ def netCDF_read(datapaths,vars='',timezone='UTC', returnRawTime=False, skip_miss
         try:
             vars = [vars]
         except TypeError:
-            print 'Variables need to be a list of strings or '' to read all variables'
+            print('Variables need to be a list of strings or '' to read all variables')
 
     if type(datapaths) != list:
         try:
             datapaths = [datapaths]
         except TypeError:
-            print 'Datapaths need to be either a singular or list of strings'
+            print('Datapaths need to be either a singular or list of strings')
 
     # find first existing datapath in [datapaths]
     first_file = []
@@ -1711,7 +1716,7 @@ def get_all_varaible_names(datapath):
     from netCDF4 import Dataset
 
     #try:
-    print datapath
+    print(datapath)
     datafile = Dataset(datapath, 'r')
     #except:
     #print 'file not present/issue with file: '+datapath
@@ -1766,5 +1771,5 @@ def eu_time_to_datetime(tstr, timeRaw):
     if 'delta' in locals():
         return [start + delta[i] for i in np.arange(0, timeRaw.size)]
     else:
-        print 'Raw time not in seconds, minutes, hours or days. No processed time created.'
+        print('Raw time not in seconds, minutes, hours or days. No processed time created.')
         return

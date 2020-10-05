@@ -38,13 +38,18 @@ import ast
 
 #read in cli's
 # proramme dir
-prog_dir = sys.argv[1]
+#prog_dir = sys.argv[1]
+prog_dir = 'C:\\Users\\kitbe\\Documents\\ceilometer_calibration'
 # base directory for data (MM_DAILYDATA or euivalent)
-base_dir = sys.argv[2]
+#base_dir = sys.argv[2]
+base_dir = 'Z:\\Tier_raw'
+
 # years to process
-yrs = sys.argv[3]
+#yrs = sys.argv[3]
+yrs = '2018'
 #sites to process
-s_ids = sys.argv[4]
+#s_ids = sys.argv[4]
+s_ids = 'CL31-C_MR'
 
 # append dir containing lcu utility library
 sys.path.append(os.path.join(prog_dir, 'utils'))
@@ -73,18 +78,19 @@ for site_id in site_ids:
     ceil_type = site_id.split('-')[0]
     site = site_id.split('_')[-1]
     
-    num_files_present = 0 # count how many BSC files were actually present in the year
     # loop through years - create 1 netCDF file per year, per site
     for year in years:
 
+        num_files_present = 0 # count how many BSC files were actually present in the year
+
         # create date range (daily resolution) to loop through
         # calibration values created at daily resolution
-        start_date = dt.datetime(year, 1, 1)  # comparing my modes to EH modes
+        start_date = dt.datetime(year, 1, 5)  # comparing my modes to EH modes
         end_date = dt.datetime(year, 12, 31)
         date_range = lcu.date_range(start_date, end_date, 1, 'day')
 
         # create simple time range (just days) for use in saving to netCDF later
-        time_deltas = [i - dt.datetime(year,1,01) for i in date_range]
+        time_deltas = [i - dt.datetime(year,1,1) for i in date_range]
         date_range_netcdf = np.array([i.days for i in time_deltas])
 
         # ----------------------------
@@ -108,7 +114,7 @@ for site_id in site_ids:
             doy = day.strftime('%j')
 
             # state the date for each loop
-            print 'processing day ' + str(day)
+            print('processing day ' + str(day))
 
             # ----------------------------
             # Read in data
@@ -131,6 +137,7 @@ for site_id in site_ids:
                     num_files_present += 1
                     #unpack outputs
                     (dayC_mode_wv, dayC_median_wv, dayC_mode, dayC_median, no_of_profs) = tuple(calib_out)
+
                     #append everything
                     profile_total.append(no_of_profs)
                     C_modes.append(dayC_mode)
@@ -150,7 +157,7 @@ for site_id in site_ids:
 
             # else if backscatter data is not available this day
             else:
-                print 'BSC datafile was missing'
+                print('BSC datafile was missing')
                 C_modes_wv.append(np.nan)
                 C_medians_wv.append(np.nan)
                 C_modes.append(np.nan)
@@ -164,4 +171,4 @@ for site_id in site_ids:
                                         site_id, site, year, base_dir + os.sep)
 
 
-print 'END PROGRAM'
+print('END PROGRAM')
