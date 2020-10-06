@@ -1111,14 +1111,17 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     EW 13//04/18
     """
-
+    import os
+    
     # Create save file id (put CAL in the id)
     a = site_id.split('_')
     site_save_id = a[0] + '_CAL_' + a[1] + '_KB'
 
     ncsavedir = base_dir+'data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
     # ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
-
+    if os.path.exists(ncsavedir) == False:
+        os.makedirs(ncsavedir)
+        
     # Create save filename
     ncfilename = site_save_id + '_' + str(year) + '.nc'
 
