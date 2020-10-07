@@ -1,11 +1,18 @@
 library(ncdf4)
 library(sys)
+library(dplyr)
 
-progVersion <- 'kitTemp'
-source(file.path(Sys.getenv('HOME'),progVersion, 'ceilometer_calibration', 'applyCalibrationToBSCFunctions.R'))
-baseDir <- Sys.getenv('MM_DAILYDATA') 
-siteIds <- 'CL31-D_SWT'
-years <- '2018'
+#get args 
+cla <- commandArgs(trailingOnly = T)
+progDir <- cla[1]
+source(file.path(progDir, 'utils', 'applyCalibrationToBSCFunctions.R'))
+baseDir <- cla[2]
+sIds <- cla[3]
+yrs <- cla[4]
+
+#format years and site ids
+siteIds <- strsplit(sIds, ';')[[1]]
+years <- strsplit(yrs, ';')[[1]]
 
 #for every site
 for (siteId in siteIds){
@@ -35,10 +42,13 @@ for (siteId in siteIds){
       #extract cal value for day
       dayCal <- c_data %>% dplyr::filter(c_DATE == DATE)
       #if there is no cal value skip
-      if(is.na(dayCal[['c_pro']])){
+      if(nrow(dayCal) == 0){
         message('No calibration value for this day')
         next
-      }
+      } else if (is.na(dayCal[['c_pro']])){
+        message('No calibration value for this day')
+        next
+      } 
       
       #read in L1 BSC
       bscFileCon <- getBSCFileCon(baseDir, year, doy, site, instId)
@@ -64,3 +74,5 @@ for (siteId in siteIds){
     }
   }
 }
+
+print('Program finished')
