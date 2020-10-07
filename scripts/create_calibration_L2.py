@@ -134,7 +134,13 @@ for site_id in site_ids:
         ccw30_filepaths = [os.path.join(ceilclouddatadir, i.strftime('%j'), ceil_id + '_CCW30_' + site + '_' + i.strftime('%Y%j') + '_15min.nc') for i in date_range]
         # get window transmission
         window_trans = lcu.netCDF_read(ccw30_filepaths, skip_missing_files=True)
-
+        
+        #omit times outside of period (stray values at end of period)
+        for key in window_trans.keys():
+            if key not in ['lon', 'lat', 'height']:
+                window_trans[key] = window_trans[key][:-1]
+            else:
+                window_trans[key] = window_trans[key]
         # ==============================================================================
         # Process
         # ==============================================================================
@@ -162,3 +168,4 @@ for site_id in site_ids:
 
 
 print('END PROGRAM')
+
