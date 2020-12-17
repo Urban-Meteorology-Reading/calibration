@@ -34,7 +34,6 @@ import os
 import sys
 import numpy as np
 import datetime as dt
-import ast
 
 #read in cli's
 # proramme dir
@@ -46,10 +45,10 @@ base_dir = sys.argv[2]
 
 # years to process
 yrs = sys.argv[3]
-#yrs = '2018'
+#yrs = '2020'
 #sites to process
 s_ids = sys.argv[4]
-#s_ids = 'CL31-C_MR'
+#s_ids = 'CL31-D_SWT'
 
 # append dir containing lcu utility library
 sys.path.append(os.path.join(prog_dir, 'utils'))
@@ -132,7 +131,7 @@ for site_id in site_ids:
 
                 try:
                     #get all the outputs
-                    calib_out = lcu.create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ratio_filt)
+                    calib_out = lcu.create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ratio_filt, site)
                     # add 1 to show that a file was present
                     num_files_present += 1
                     #unpack outputs

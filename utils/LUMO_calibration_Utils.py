@@ -17,7 +17,7 @@ from scipy import stats
 
 # Reading ------------------------------------------------------------
 
-def mo_create_filename_old_style(main_day, base_dir, **kwargs):
+def mo_create_filename_old_style(main_day, base_dir, site, **kwargs):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
@@ -57,7 +57,7 @@ def mo_create_filename_old_style(main_day, base_dir, **kwargs):
         for model_i in models:
             # print 'mod is '+model_i
             # create filename and check path existance
-            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_' + site + '.nc'
             filepaths = [datadir_mo + filename]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
             #   being used so it can safely fail the existance check outside of this function
@@ -77,7 +77,7 @@ def mo_create_filename_old_style(main_day, base_dir, **kwargs):
             Z = mod_Z[1]
 
             # check path existance
-            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_KSSW.nc'
+            filename = 'MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_WXT_' + site + '.nc'
             filepaths = [datadir_mo + filename]
 
             if exists(filepaths[0]) == True:
@@ -86,7 +86,7 @@ def mo_create_filename_old_style(main_day, base_dir, **kwargs):
 
     return filepaths, model_i, Z, paths_exist
 
-def mo_create_filename_new_style(main_day, base_dir, **kwargs):
+def mo_create_filename_new_style(main_day, base_dir, site, **kwargs):
 
     """
     Create the filenames for the MO data to read in. Check to see if they are present and if not, try London model.
@@ -131,7 +131,7 @@ def mo_create_filename_new_style(main_day, base_dir, **kwargs):
         for model_i in models:
 
             # create filename and check path existance
-            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
+            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_'+ site + '.nc'
                          for code in stash_codes.values()]  # old style
             filepaths = [datadir_mo + i for i in filenames]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
@@ -152,7 +152,7 @@ def mo_create_filename_new_style(main_day, base_dir, **kwargs):
             Z = mod_Z[1]
 
             # create filename and check path existance
-            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_KSSW.nc'
+            filenames = ['MO' + model_i + '_FC' + main_day.strftime('%Y%m%d') + Z + 'Z_' + code + '_LON_'+ site + '.nc'
                          for code in stash_codes.values()]  # old style
             filepaths = [datadir_mo + i for i in filenames]
             # if the file exists then break the loop and keep 'filepath', else finish the loop with the LON filepath
@@ -1115,7 +1115,7 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
     
     # Create save file id (put CAL in the id)
     a = site_id.split('_')
-    site_save_id = a[0] + '_CAL_' + a[1] + '_KB'
+    site_save_id = a[0] + '_CAL_' + a[1]
 
     ncsavedir = base_dir+'data/'+str(year)+'/London/L1/'+site+'/ANNUAL/'
     # ncsavedir = 'C:/Users/Elliott/Documents/PhD Reading/LUMO - Sensor network/calibration/data/ncsave/'
@@ -1169,7 +1169,7 @@ def netCDF_save_calibration(C_modes_wv, C_medians_wv, C_modes, C_medians, profil
 
     return
 
-def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ratio_filt):
+def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ratio_filt, site):
     """
     main function to create L1 calibration
     """
@@ -1205,14 +1205,14 @@ def create_calibration_L1(bsc_filepath, day, base_dir, cont_profs, maxB_filt, ra
 
     # Get full file paths for the day and yesterday's (yest) MO data and which model the forecast came from
     if yest < dt.datetime(2018, 1, 1):
-        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_old_style(yest, base_dir)
+        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_old_style(yest, base_dir, site)
     else:
-        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_new_style(yest, base_dir)
+        yest_filepaths, yest_mod, yest_Z, yest_file_exist = mo_create_filename_new_style(yest, base_dir, site)
 
     if day < dt.datetime(2018, 1, 1):
-        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_old_style(day, base_dir, set_Z=yest_Z)
+        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_old_style(day, base_dir, site, set_Z=yest_Z)
     else:
-        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_new_style(day, base_dir, set_Z=yest_Z)
+        day_filepaths, day_mod, day_Z, day_file_exist = mo_create_filename_new_style(day, base_dir, site, set_Z=yest_Z)
 
     # if both day's data exist, apply water vapour correction, else set backscatter to nan
     if yest_file_exist & day_file_exist:
