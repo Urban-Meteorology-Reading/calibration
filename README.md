@@ -39,7 +39,11 @@ The python script takes 4 arguments:
  
 #### Running on the RACC
 
-At the time of writing, there exists a script on the RACC to call these processes: `$HOME/script/slurmScripts/ceilometer-calibration.sh`. Example uasage: `cd $HOME/script/slurmScripts/submitScript; ./MMsbatch.sh ceilometer_calibration.sh --export=PROG_VERSION=2808871,years="2019;2020",site_ids="CL31-D_SWT;CL31-A_IMU",base_dir=$MM_DAILYDATA --time=800 --mem=10G --mail-user=k.j.benjamin@reading.ac.uk --mail-type=FAIL`
+At the time of writing, there exists a script on the RACC to call these processes: `$HOME/script/slurmScripts/ceilometer-calibration.sh`. Example uasage: 
+
+`cd $HOME/script/slurmScripts/submitScript; ./MMsbatch.sh ceilometer_calibration.sh --export=PROG_VERSION=2808871,years="2019;2020",site_ids="CL31-D_SWT;CL31-A_IMU",base_dir=$MM_DAILYDATA --time=800 --mem=10G --mail-user=k.j.benjamin@reading.ac.uk --mail-type=FAIL`
 
 ### Getting calibrated L1 BSC and MLH 
-Once the L0 calibrated backscatter is created, the L1 BSC and MLH files can be created using calibrated L0 backscatter. This can be done using [this branch](https://github.com/Urban-Meteorology-Reading/Operations-CEIL/tree/calibration) of ceilometer processing with an *calibrate* being an environment variable, set to TRUE. E.g. submission on the RACC: `cd $HOME/script/slurmScripts/submitScript; ./MMsbatch.sh CEIL.sh --export=PROG_VERSION=BRANCH_HASH,DATE=$(date -d "-1 day" +"%j%Y"),calibrate=TRUE --time=60 --mem=10G --mail-user=$MM_FIXING_EMAIL --mail-type=FAIL`
+Once the L0 calibrated backscatter is created, the L1 BSC and MLH files can be created using calibrated L0 backscatter. This can be done using [this branch](https://github.com/Urban-Meteorology-Reading/Operations-CEIL/tree/calibration) of ceilometer processing with an *calibrate* being an environment variable, set to TRUE. E.g. submission on the RACC: 
+
+`cd $HOME/script/slurmScripts/submitScript; ./MMsbatch.sh CEIL.sh --export=PROG_VERSION=BRANCH_HASH,DATE=$(date -d "-1 day" +"%j%Y"),calibrate=TRUE --time=60 --mem=10G --mail-user=$MM_FIXING_EMAIL --mail-type=FAIL`
