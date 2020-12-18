@@ -114,7 +114,7 @@ for site_id in site_ids:
     periods = lcu.read_periods(perioddatadir + os.sep, site_id)
     
     # read in all L1 calibration files
-    calib_filepaths = [os.path.join(base_dir, 'data', str(i), 'London', 'L1', site, 'ANNUAL', ceil_id +'_CAL_'+site+str(i)+'.nc') for i in years]
+    calib_filepaths = [os.path.join(base_dir, 'data', str(i), 'London', 'L1', site, 'ANNUAL', ceil_id +'_CAL_'+site+'_'+str(i)+'.nc') for i in years]
     calib = lcu.netCDF_read(calib_filepaths)
     
     # save L2 calibration data (netCDF)
