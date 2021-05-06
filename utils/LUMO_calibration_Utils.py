@@ -559,7 +559,7 @@ def netCDF_read_BSC(datapath, var_type='beta_tR', SNRcorrect=True):
             data['backscatter'][data['SNR'] < 0.5] = np.nan
 
     # read in height
-    data['height'] = np.squeeze(datafile.variables['height'][:])
+    data['height'] = np.squeeze(datafile.variables['range_from_instrument'][:])
 
     # create range [m]
     if sensorType == 'CL31':
